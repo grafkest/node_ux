@@ -1,0 +1,78 @@
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 16px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 4px;
+  transition: background-color 0.1s;
+  padding-right: 8px;
+}
+
+.row:hover {
+  background-color: var(--color-bg-stripe);
+}
+
+.expandButton {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--color-typo-secondary);
+  transition: color 0.1s, transform 0.2s;
+}
+
+.expandButton:hover {
+  color: var(--color-typo-primary);
+}
+
+.expandIcon {
+  transition: transform 0.2s;
+}
+
+.expanded .expandIcon {
+  transform: rotate(90deg);
+}
+
+.checkboxWrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.leafLabel {
+  display: flex;
+  flex-direction: column;
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.indentGuide {
+    position: absolute;
+    left: 11px; /* Center of the expand button width */
+    top: 32px;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--color-bg-border);
+    display: none; /* Optional: enable if you want visual guides */
+}

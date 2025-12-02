@@ -1,0 +1,148 @@
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background: var(--color-bg-default);
+  border: 1px solid var(--color-bg-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-layer);
+}
+
+.header {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 10;
+  gap: 16px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
+  max-width: 60%;
+  transition: opacity 0.2s ease;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Dark mode support for glassmorphism */
+@media (prefers-color-scheme: dark) {
+  .legend {
+    background: rgba(30, 30, 35, 0.7);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Consta Theme overrides if available via CSS variables */
+:global(.Theme_color_gpnDark) .legend,
+:global(.Theme_color_gpnDisplay) .legend {
+  background: rgba(30, 30, 35, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.viewControls {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.5s ease-out 0.1s forwards;
+  opacity: 0;
+  /* Start hidden for animation */
+}
+
+:global(.Theme_color_gpnDark) .viewControls,
+:global(.Theme_color_gpnDisplay) .viewControls {
+  background: rgba(30, 30, 35, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.graphWrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  /* Subtle gradient background for depth */
+  background: radial-gradient(circle at center, var(--color-bg-default) 0%, var(--color-bg-secondary) 100%);
+}
+
+.controlButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-typo-primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.controlButton:hover {
+  background: var(--color-bg-secondary);
+  transform: translateY(-1px);
+}
+
+.controlButton:active {
+  background: var(--color-bg-border);
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .legend {
+    max-width: 100%;
+    order: 2;
+  }
+
+  .viewControls {
+    order: 1;
+    align-self: flex-end;
+  }
+}

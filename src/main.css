@@ -1,0 +1,135 @@
+:root {
+  font-family: var(--font-primary, 'Inter', 'Helvetica Neue', Arial, sans-serif);
+  background-color: var(--color-bg-default);
+  color: var(--color-typo-primary);
+
+  /* Domain Graph Semantic Tokens */
+  --color-domain: var(--color-bg-warning);
+  --color-initiative: var(--color-bg-alert);
+  --color-expert: var(--color-bg-success);
+  --color-module: var(--color-bg-normal);
+  --color-artifact: var(--color-bg-success);
+  
+  /* Chart semantic tokens */
+  --color-chart-low: var(--color-bg-success);
+  --color-chart-mid: var(--color-bg-warning);
+  --color-chart-high: var(--color-bg-alert);
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg-default);
+  color: var(--color-typo-primary);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Cyberpunk Theme Overrides */
+.Theme.Theme_preset_cyberpunk {
+  --font-primary: 'Rajdhani', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Base Consta Color Overrides for Cyberpunk */
+  --color-bg-default: #090910;
+  --color-bg-secondary: #131320;
+  --color-bg-stripe: #0D0D16;
+  --color-bg-border: rgba(0, 240, 255, 0.2);
+  
+  --color-typo-primary: #E0FFFF;
+  --color-typo-secondary: #94A3B8;
+  --color-typo-ghost: rgba(224, 255, 255, 0.4);
+  
+  --color-bg-brand: #00F0FF;
+  --color-bg-success: #39FF14;
+  --color-bg-warning: #FCEE0A;
+  --color-bg-alert: #FF0055;
+  --color-bg-info: #BC13FE;
+  --color-bg-link: #00F0FF;
+  
+  --color-bg-tone: #131320;
+  --color-bg-soft: #131320;
+  --color-bg-system: #131320;
+  --color-bg-normal: #00F0FF;
+
+  /* Domain Graph Semantic Tokens */
+  --color-domain: #FCEE0A;  /* Laser Lemon */
+  --color-initiative: #FF0055; /* Radical Red */
+  --color-expert: #39FF14; /* Neon Green */
+  --color-module: #00F0FF; /* Electric Cyan */
+  --color-artifact: #BC13FE; /* Electric Violet */
+  
+  --color-chart-low: #39FF14;
+  --color-chart-mid: #FCEE0A;
+  --color-chart-high: #FF0055;
+}
+
+.Theme_preset_cyberpunk .text-number,
+.Theme_preset_cyberpunk h1,
+.Theme_preset_cyberpunk h2,
+.Theme_preset_cyberpunk h3,
+.Theme_preset_cyberpunk h4,
+.Theme_preset_cyberpunk h5,
+.Theme_preset_cyberpunk h6 {
+  font-family: var(--font-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Neon Glow Animation */
+@keyframes neon-pulse {
+  0% { box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand); }
+  50% { box-shadow: 0 0 10px var(--color-bg-brand), 0 0 20px var(--color-bg-brand); }
+  100% { box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand); }
+}
+
+/* Apply glow to primary buttons in cyberpunk theme */
+.Theme_preset_cyberpunk button[class*="Button_view_primary"] {
+  box-shadow: 0 0 10px var(--color-bg-brand);
+  border: 1px solid var(--color-bg-brand);
+}
+
+.Theme_preset_cyberpunk button[class*="Button_view_primary"]:hover {
+  animation: neon-pulse 1.5s infinite alternate;
+}
+
+/* Scrollbar styling for Cyberpunk */
+.Theme_preset_cyberpunk ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-bg-default);
+}
+
+.Theme_preset_cyberpunk ::-webkit-scrollbar-thumb {
+  background-color: var(--color-bg-border);
+  border-radius: 4px;
+  border: 1px solid var(--color-bg-secondary);
+}
+
+.Theme_preset_cyberpunk ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-bg-brand);
+  box-shadow: 0 0 5px var(--color-bg-brand);
+}
+
+/* CRT Scanline Effect (Optional, very subtle) */
+.Theme_preset_cyberpunk::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  z-index: 9999;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+  opacity: 0.4;
+}

@@ -1,0 +1,206 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-bg-border);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  text-align: center;
+  color: var(--color-typo-secondary);
+  flex: 1;
+}
+
+.description {
+  white-space: pre-line;
+  color: var(--color-typo-primary);
+  line-height: 1.5;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tagList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.link {
+  color: var(--color-link-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.link:hover {
+  text-decoration: underline;
+  color: var(--color-link-hover);
+}
+
+.ioList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ioItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.ioItem:hover {
+  border-color: var(--color-bg-border);
+}
+
+.code {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-bg-secondary);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.collapseLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0 4px;
+}
+
+.keyValueItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.value {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-bg-border);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.listItemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.companyList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.companyListItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: var(--color-bg-secondary);
+  border-radius: 6px;
+}
+
+.teamRoster {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.teamRosterHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-bg-border);
+}
+
+.teamSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

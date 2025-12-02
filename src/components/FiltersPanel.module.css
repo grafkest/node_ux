@@ -1,0 +1,77 @@
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 16px 24px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.statusFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.statusChip {
+  border-radius: 16px;
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.combobox {
+  width: 100%;
+}
+
+.comboboxOption {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.comboboxOptionHovered {
+  background-color: var(--color-bg-stripe);
+}
+
+.comboboxOptionActive {
+  color: var(--color-typo-brand);
+}
+
+.comboboxCheckbox {
+  pointer-events: none;
+}
+
+.switchRow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-bg-border);
+}
+
+.switch {
+    width: 100%;
+}
+
+.resetSection {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-bg-border);
+}

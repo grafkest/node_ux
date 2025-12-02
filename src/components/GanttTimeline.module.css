@@ -1,0 +1,191 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.axisRow {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(0, 2.6fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.axisHeaderCell {
+  display: flex;
+  align-items: center;
+}
+
+.axis {
+  position: relative;
+  display: grid;
+  width: 100%;
+  border-radius: 12px;
+  background: var(--color-bg-default);
+  overflow: hidden;
+}
+
+.axisCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-left: 1px solid var(--color-bg-border);
+  min-height: 36px;
+}
+
+.axisCell:first-child {
+  border-left: none;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(0, 2.6fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.timelineCell {
+  position: relative;
+  --lane-height: 72px;
+  border-radius: 12px;
+  border: 1px solid var(--color-bg-border);
+  background: var(--color-bg-secondary);
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 112px;
+}
+
+.timelineLane {
+  position: absolute;
+  inset: 12px;
+  border-radius: 8px;
+  background: var(--color-bg-default);
+  pointer-events: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  width: 100%;
+}
+
+.laneSection {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--color-bg-border);
+  background: rgba(37, 110, 255, 0.04);
+  height: var(--lane-height);
+}
+
+.laneSection[data-kind='out-of-project'] {
+  background: rgba(255, 166, 0, 0.05);
+}
+
+.laneSection[data-kind='training'] {
+  background: rgba(47, 209, 150, 0.05);
+}
+
+.laneSection:last-child {
+  border-bottom: none;
+}
+
+.task {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  box-shadow: 0 8px 18px rgba(17, 43, 96, 0.12);
+  min-width: 0;
+  max-width: none;
+  height: calc(var(--lane-height) - 16px);
+  justify-content: center;
+}
+
+.task[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.task[data-selected='true'] {
+  box-shadow: 0 0 0 2px var(--color-bg-link), 0 12px 24px rgba(17, 43, 96, 0.18);
+  border-color: var(--color-bg-link);
+}
+
+.todayIndicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(37, 110, 255, 0.1) 0%, rgba(37, 110, 255, 0.6) 48%, rgba(37, 110, 255, 0.1) 100%);
+  pointer-events: none;
+}
+
+.timelineTodayIndicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(37, 110, 255, 0.4);
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+
+.task[data-kind='project'] {
+  background: rgba(37, 110, 255, 0.16);
+  border-color: rgba(37, 110, 255, 0.35);
+}
+
+.task[data-kind='out-of-project'] {
+  background: rgba(255, 166, 0, 0.18);
+  border-color: rgba(255, 166, 0, 0.42);
+}
+
+.task[data-kind='training'] {
+  background: rgba(47, 209, 150, 0.18);
+  border-color: rgba(47, 209, 150, 0.4);
+}
+
+.taskHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.taskName {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.taskPeriod {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--color-typo-secondary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 960px) {
+  .axisRow,
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .axis {
+    margin-top: 4px;
+  }
+}

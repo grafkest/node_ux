@@ -1,0 +1,126 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.periodSelect {
+  min-width: 200px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.compactCard {
+  border: 1px solid var(--color-bg-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--color-bg-secondary);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.cardTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.blockerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legendMarker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.legendMarker[data-kind='project'] {
+  background: rgba(37, 110, 255, 0.9);
+}
+
+.legendMarker[data-kind='out-of-project'] {
+  background: rgba(255, 166, 0, 0.9);
+}
+
+.legendMarker[data-kind='training'] {
+  background: rgba(47, 209, 150, 0.9);
+}
+
+.emptyState {
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px dashed var(--color-bg-border);
+  background: var(--color-bg-default);
+  display: flex;
+  justify-content: center;
+}

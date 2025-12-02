@@ -1,0 +1,126 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: min(720px, 90vw);
+  max-height: min(80vh, 720px);
+}
+
+.closeButton {
+  align-self: flex-end;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skillList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.skillCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--color-bg-default);
+}
+
+.skillHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skillActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.skillMeta {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.evidenceSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--color-bg-border);
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+}
+
+.evidenceHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evidenceList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evidenceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 8px;
+  background: var(--color-bg-default);
+}
+
+.evidenceFields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.evidenceActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.evidenceEmpty {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--color-bg-default);
+}
+
+.skillNameHint {
+  color: var(--color-typo-secondary);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionsGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.addButton {
+  align-self: flex-start;
+}
+
+.error {
+  color: var(--color-typo-alert);
+}

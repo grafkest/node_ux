@@ -1,0 +1,262 @@
+.root {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--color-bg-default);
+  color: var(--color-typo-primary);
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-bg-border);
+  background-color: var(--color-bg-default);
+  box-shadow: var(--shadow-layer);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease, transform 0.3s ease;
+  z-index: 10;
+}
+
+.sidebarCollapsed {
+  width: 80px;
+}
+
+.sidebarHeader {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-bg-border);
+  overflow: hidden;
+}
+
+.sidebarCollapsed .sidebarHeader {
+  padding: 0 12px;
+  justify-content: center;
+}
+
+.logoText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-typo-primary);
+}
+
+.collapseButton {
+  display: none;
+}
+
+.sidebarContent {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graphSection {
+  padding: 16px 12px;
+  border-top: 1px solid var(--color-bg-border);
+  border-bottom: 1px solid var(--color-bg-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--color-bg-default);
+}
+
+.graphSectionTitle {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.graphBadge {
+  width: 100%;
+  justify-content: center;
+}
+
+.graphSelect {
+  width: 100%;
+}
+
+.graphSelectDropdown {
+  z-index: 2000;
+}
+
+.graphActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebarFooter {
+  padding: 24px 20px;
+  border-top: 1px solid var(--color-bg-border);
+  background-color: var(--color-bg-default);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.themeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.themeButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.mainContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--color-bg-default);
+  position: relative;
+}
+
+.header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-bg-border);
+  background-color: var(--color-bg-default);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.headerTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerDescription {
+  /* */
+}
+
+.pageContent {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Consta overrides/helpers */
+.menuButton {
+  justify-content: flex-start;
+}
+
+.sidebarCollapsed .menuButton {
+  justify-content: center;
+}
+
+.sidebarCollapsed .menuButton :global(.Button-Icon_left) {
+  margin: 0;
+}
+
+.mobileMenuButton {
+  display: none;
+  background: none;
+  border: none;
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--color-typo-primary);
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+.mobileCloseButton {
+  display: none;
+  background: none;
+  border: none;
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--color-typo-primary);
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+}
+
+@media (min-width: 769px) {
+  .collapseButton {
+    display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+    background-color: var(--color-bg-secondary);
+    z-index: 100; /* Higher on mobile */
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .mobileMenuButton {
+    display: flex;
+  }
+  
+  .mobileCloseButton {
+    display: flex;
+  }
+
+  .header {
+    padding: 0 16px;
+  }
+  
+  .overlay {
+    display: block;
+  }
+  
+  .sidebarCollapsed {
+    width: 280px; /* No collapse on mobile */
+  }
+  
+  .collapseButton {
+     display: none;
+  }
+}

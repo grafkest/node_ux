@@ -1,0 +1,62 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(520px, 90vw);
+  max-height: min(75vh, 640px);
+}
+
+.closeButton {
+  align-self: flex-end;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skillList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+  overflow-y: auto;
+}
+
+.skillRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.skillInput {
+  flex: 1;
+}
+
+.newSkillRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.error {
+  color: var(--color-typo-alert);
+}
+
+.empty {
+  color: var(--color-typo-secondary);
+}

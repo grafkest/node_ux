@@ -1,0 +1,516 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  flex: 1;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  align-items: end;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  outline: none;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .controls {
+    background: rgba(30, 30, 35, 0.6);
+  }
+}
+
+:global(.Theme_color_gpnDark) .controls,
+:global(.Theme_color_gpnDisplay) .controls {
+  background: rgba(30, 30, 35, 0.6);
+}
+
+.filterModeToggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-bg-border);
+}
+
+.filterModeDescription {
+  margin-left: 28px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchField {
+  min-width: 220px;
+}
+
+@media (max-width: 768px) {
+  .searchField {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .viewToolbar {
+    gap: 12px;
+  }
+
+  .toolbarActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.summaryCard {
+  height: 100%;
+  border-radius: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.summaryCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: var(--color-bg-border);
+}
+
+.viewToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+:global(.Theme_color_gpnDark) .viewToolbar,
+:global(.Theme_color_gpnDisplay) .viewToolbar {
+  background: rgba(30, 30, 35, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.modeTabs {
+  flex-shrink: 0;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.countBadge {
+  white-space: nowrap;
+}
+
+.comboboxValueSummary {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--color-typo-primary);
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 24px;
+  min-height: 0;
+  flex: 1;
+}
+
+.listLayout {
+  grid-template-columns: minmax(0, 0.6fr) minmax(320px, 1fr);
+}
+
+.rolePane {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  min-height: 0;
+}
+
+.roleListPane,
+.roleGraphPane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.roleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.roleCard:hover {
+  border-color: var(--color-bg-link);
+}
+
+.roleCardActive {
+  border-color: var(--color-bg-link);
+  box-shadow: 0 0 0 3px rgba(63, 140, 255, 0.15);
+}
+
+.roleCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.roleSummaryCard {
+  align-self: flex-start;
+}
+
+.roleSummaryStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.roleModuleBadges {
+  margin-top: 8px;
+}
+
+.roleExpertsCard {
+  align-self: flex-start;
+}
+
+.listPane,
+.graphPane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .content {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .listLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .rolePane {
+    grid-template-columns: 1fr;
+  }
+
+  .detailsPane {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 200;
+    border-radius: 0;
+    display: none;
+  }
+
+  .detailsPane.active {
+    display: flex;
+  }
+}
+
+.graphControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-bg-border);
+  z-index: 10;
+}
+
+.graphFilterButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.graphFilterButton {
+  white-space: nowrap;
+  border-radius: 8px;
+}
+
+.graphFilterMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graphSoftToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.graphSoftToggleDescription {
+  margin-left: 4px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.graphContainer {
+  flex: 1;
+  min-height: 500px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(to bottom right, var(--color-bg-default), var(--color-bg-secondary));
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
+  position: relative;
+}
+
+.graphPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.focusCard {
+  align-self: flex-start;
+}
+
+.focusMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.focusExpertButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.focusExpertButton {
+  white-space: nowrap;
+}
+
+.expertCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.expertCard:hover {
+  border-color: var(--color-bg-link);
+}
+
+.expertCardActive {
+  border-color: var(--color-bg-link);
+  box-shadow: 0 0 0 3px rgba(63, 140, 255, 0.15);
+}
+
+.expertCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expertCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skillBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.softSkillBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  text-align: center;
+  border: 1px dashed var(--color-bg-border);
+  border-radius: 12px;
+  color: var(--color-typo-secondary);
+}
+
+.detailsPane {
+  background: var(--color-bg-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-layer);
+  padding: 24px;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+}
+
+.detailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.detailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.detailBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-typo-secondary);
+}
+
+.badgeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.focusList,
+.detailList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detailListItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-bg-border);
+}
+
+.detailListItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.contactLink {
+  color: var(--color-typo-link);
+  text-decoration: none;
+}
+
+.contactLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1280px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .detailsPane {
+    order: -1;
+  }
+
+  .rolePane {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+}

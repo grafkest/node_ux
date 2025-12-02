@@ -1,0 +1,565 @@
+.container {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: var(--color-bg-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.selectorTitle {
+  margin: 0;
+}
+
+.selectorHint {
+  margin: 0;
+}
+
+.selectorActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.formTitle {
+  margin: 0;
+}
+
+.formSubtitle {
+  margin: 0;
+}
+
+.formBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.collapseLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 12px;
+}
+
+.fieldGroup {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metricDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metricHint {
+  margin: 0;
+}
+
+.label {
+  margin: 0;
+}
+
+.input,
+.textarea,
+.numberInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-bg-border);
+  background-color: var(--color-bg-ghost);
+  font: inherit;
+  resize: vertical;
+}
+
+.select {
+  width: 100%;
+}
+
+.listItem .select {
+  width: 100%;
+}
+
+.listItem .field {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.textarea {
+  min-height: 96px;
+}
+
+.skillMatrix {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skillMatrixHeader {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.skillMatrixHeaderWide {
+  grid-template-columns: minmax(240px, 1fr) repeat(2, minmax(160px, 200px));
+}
+
+.skillMatrixTitle {
+  margin: 0;
+}
+
+.skillMatrixHint {
+  margin: 0;
+}
+
+.skillMatrixRow {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: var(--color-bg-ghost);
+}
+
+.skillMatrixRowWide {
+  grid-template-columns: minmax(240px, 1fr) repeat(2, minmax(160px, 200px));
+}
+
+.skillMatrixInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skillMatrixDescription {
+  margin: 0;
+}
+
+.skillMatrixControl {
+  display: flex;
+  align-items: center;
+}
+
+.skillMatrixEmpty {
+  margin: 0;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adminTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.adminTable th {
+  text-align: left;
+  padding: 0 12px;
+  color: var(--color-typo-secondary);
+  font-size: 12px;
+}
+
+.listItem {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.importToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.importHint {
+  margin: 0;
+}
+
+.importError {
+  margin: 0;
+  color: var(--color-typo-alert);
+}
+
+.importModal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.modalCloseButton {
+  align-self: flex-end;
+}
+
+.importSummary {
+  display: grid;
+  gap: 8px;
+}
+
+.importIssues {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.importRoleHint {
+  line-height: 16px;
+}
+
+.importRoleFields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.importWarningList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.importWarningList li {
+  margin-bottom: 4px;
+}
+
+.importSkillCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 12px;
+  background-color: var(--color-bg-ghost);
+}
+
+.importSkillActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.listStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inlineGroup {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.dataRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.subSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+}
+
+.companyInlineForm {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.companyInlineButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.inlineForm {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.inlineButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.projectList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: disc;
+}
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: var(--color-bg-system);
+}
+
+.chipButton {
+  border: none;
+  background: none;
+  color: var(--color-typo-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.stepActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-bg-border);
+  margin-top: auto;
+}
+
+.submitRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.submitButtons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hint {
+  margin: 0;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-typo-alert);
+}
+
+.moduleTabs {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-bg-border);
+}
+
+.moduleFormContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.roleManager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-bg-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.roleRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.roleActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.roleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-bg-border);
+  background: var(--color-bg-ghost);
+}
+
+.roleHint {
+  margin: 0;
+}
+
+.roleStatus {
+  margin: 0;
+}
+
+.developmentPanel {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--color-bg-border);
+  border-radius: 12px;
+  background: var(--color-bg-default);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.developmentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gapList {
+  display: grid;
+  gap: 12px;
+}
+
+.gapRow {
+  border: 1px solid var(--color-bg-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--color-bg-ghost);
+}
+
+.gapTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gapMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.gapLink {
+  margin-top: 4px;
+}
+
+.planHint {
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .selector {
+    order: 2;
+  }
+
+  .formWrapper {
+    order: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    gap: 16px;
+  }
+
+  .list {
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+
+  .adminTable {
+    min-width: 500px;
+  }
+  
+  .skillMatrixRow,
+  .skillMatrixRowWide {
+    grid-template-columns: 1fr;
+  }
+  
+  .skillMatrixHeader,
+  .skillMatrixHeaderWide {
+    display: none;
+  }
+}
