@@ -21,7 +21,8 @@ import AdminPanel, {
   type DomainDraftPayload,
   type ExpertDraftPayload,
   type ModuleDraftPayload,
-  type ModuleDraftPrefillRequest
+  type ModuleDraftPrefillRequest,
+  type UserDraftPayload
 } from './components/AdminPanel';
 import FiltersPanel from './components/FiltersPanel';
 import {
@@ -167,6 +168,7 @@ function App() {
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
+  const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
   const domainDataRef = useRef(domainData);
   const moduleDataRef = useRef(moduleData);
   const artifactDataRef = useRef(artifactData);
@@ -291,6 +293,8 @@ function App() {
     },
     []
   );
+
+
   useLayoutEffect(() => {
     const element = sidebarRef.current;
     if (!element) {
@@ -326,20 +330,27 @@ function App() {
 
     measure();
 
-    if (typeof ResizeObserver === 'undefined') {
-      return;
-    }
-
-    const observer = new ResizeObserver(() => {
-      measure();
-    });
-
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
 
     return () => {
       observer.disconnect();
     };
-  }, [areFiltersOpen, isDomainTreeOpen]);
+  }, [isDomainTreeOpen, areFiltersOpen]);
+
+  const fetchUsers = useCallback(() => {
+    if (!user || user.role !== 'admin') return;
+    fetch('/api/users')
+      .then((res) => res.json())
+      .then((data) => setUsers(data))
+      .catch((err) => console.error('Failed to fetch users', err));
+  }, [user]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+
   useEffect(() => {
     activeGraphIdRef.current = activeGraphId;
     // Сохраняем выбранный граф в localStorage
@@ -367,6 +378,70 @@ function App() {
   const dismissAdminNotice = useCallback(() => {
     setAdminNotice(null);
   }, []);
+
+  const handleCreateUser = useCallback(
+    (draft: UserDraftPayload) => {
+      fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft)
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to create user');
+          return res.json();
+        })
+        .then(() => {
+          fetchUsers();
+          showAdminNotice('success', 'Пользователь успешно создан');
+        })
+        .catch((err) => {
+          console.error(err);
+          showAdminNotice('error', 'Не удалось создать пользователя');
+        });
+    },
+    [fetchUsers, showAdminNotice]
+  );
+
+  const handleUpdateUser = useCallback(
+    (id: string, draft: UserDraftPayload) => {
+      fetch(`/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft)
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to update user');
+          return res.json();
+        })
+        .then(() => {
+          fetchUsers();
+          showAdminNotice('success', 'Пользователь успешно обновлен');
+        })
+        .catch((err) => {
+          console.error(err);
+          showAdminNotice('error', 'Не удалось обновить пользователя');
+        });
+    },
+    [fetchUsers, showAdminNotice]
+  );
+
+  const handleDeleteUser = useCallback(
+    (id: string) => {
+      fetch(`/api/users/${id}`, {
+        method: 'DELETE'
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to delete user');
+          fetchUsers();
+          showAdminNotice('success', 'Пользователь успешно удален');
+        })
+        .catch((err) => {
+          console.error(err);
+          showAdminNotice('error', 'Не удалось удалить пользователя');
+        });
+    },
+    [fetchUsers, showAdminNotice]
+  );
 
   const products = useMemo(() => buildProductList(moduleData), [moduleData]);
   const companies = useMemo(() => buildCompanyList(moduleData), [moduleData]);
@@ -3743,6 +3818,10 @@ function App() {
                 onUpdateExpert={handleUpdateExpert}
                 onDeleteExpert={handleDeleteExpert}
                 onUpdateEmployeeTasks={setEmployeeTasks}
+                users={users}
+                onCreateUser={handleCreateUser}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
                 currentUser={user}
               />
             </main>

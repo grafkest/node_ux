@@ -50,6 +50,8 @@ import type {
 } from '../utils/expertExcel';
 import { useSkillRegistryVersion } from '../utils/useSkillRegistryVersion';
 import RoleCompetencyAdmin from './RoleCompetencyAdmin';
+import UserManagement from './UserManagement';
+import LoginLogsView from './LoginLogsView';
 import styles from './AdminPanel.module.css';
 
 export type ModuleDraftPayload = {
@@ -112,6 +114,12 @@ export type ArtifactDraftPayload = {
 
 export type { ExpertDraftPayload } from '../types/expert';
 
+export type UserDraftPayload = {
+  username: string;
+  password?: string;
+  role: 'admin' | 'user';
+};
+
 type AdminPanelProps = {
   modules: ModuleNode[];
   domains: DomainNode[];
@@ -134,6 +142,11 @@ type AdminPanelProps = {
   onUpdateExpert: (id: string, draft: ExpertDraftPayload) => void;
   onDeleteExpert: (id: string) => void;
   onUpdateEmployeeTasks: (tasks: TaskListItem[]) => void;
+  users: Array<{ id: string; username: string; role: 'admin' | 'user' }>;
+  currentUser: { id: string; role: 'admin' | 'user' };
+  onCreateUser: (draft: UserDraftPayload) => void;
+  onUpdateUser: (id: string, draft: UserDraftPayload) => void;
+  onDeleteUser: (id: string) => void;
 };
 
 type AdminTab = 'module' | 'domain' | 'artifact' | 'expert' | 'role' | 'user' | 'logs';
@@ -232,7 +245,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   onCreateExpert,
   onUpdateExpert,
   onDeleteExpert,
-  onUpdateEmployeeTasks
+
+  onUpdateEmployeeTasks,
+  users,
+  currentUser,
+  onCreateUser,
+  onUpdateUser,
+  onDeleteUser
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('module');
   const skillRegistryVersion = useSkillRegistryVersion();
@@ -401,6 +420,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [artifactDraft, setArtifactDraft] = useState<ArtifactDraftPayload>(() => createDefaultArtifactDraft());
   const [artifactStep, setArtifactStep] = useState<number>(0);
   const [expertDraft, setExpertDraft] = useState<ExpertDraftPayload>(() => createDefaultExpertDraft());
+
+  const [userDraft, setUserDraft] = useState<UserDraftPayload>({ username: '', role: 'user' });
+  const [selectedUserId, setSelectedUserId] = useState<string>('__new__');
 
   const moduleDraftPrefillKey = moduleDraftPrefill?.id;
 
@@ -609,6 +631,31 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }
     onDeleteExpert(selectedExpertId);
     setSelectedExpertId('__new__');
+  };
+
+  const handleUserSubmit = () => {
+    if (selectedUserId === '__new__') {
+      onCreateUser(userDraft);
+      setUserDraft({ username: '', role: 'user' });
+    } else {
+      onUpdateUser(selectedUserId, userDraft);
+    }
+  };
+
+  const handleUserEdit = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (user) {
+      setSelectedUserId(userId);
+      setUserDraft({ username: user.username, role: user.role });
+    }
+  };
+
+  const handleUserDelete = (userId: string) => {
+    onDeleteUser(userId);
+    if (selectedUserId === userId) {
+      setSelectedUserId('__new__');
+      setUserDraft({ username: '', role: 'user' });
+    }
   };
 
   const registerCompanyName = (name: string) => {
@@ -896,6 +943,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
 
         {activeTab === 'role' && <RoleCompetencyAdmin />}
+
+        {activeTab === 'user' && (
+          <UserManagement
+            users={users}
+            selectedUserId={selectedUserId}
+            userDraft={userDraft}
+            onUserDraftChange={setUserDraft}
+            onSubmit={handleUserSubmit}
+            onEdit={handleUserEdit}
+            onDelete={handleUserDelete}
+            currentUser={currentUser}
+          />
+        )}
+
+        {activeTab === 'logs' && <LoginLogsView />}
 
       </div>
     </div>
