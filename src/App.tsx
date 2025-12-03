@@ -86,9 +86,11 @@ import { preparePlannerModuleSelections } from './utils/initiativePlanner';
 import { initialEmployeeTasks } from './data/employeeTasks';
 import type { TaskListItem } from './types/tasks';
 import { loadStoredTasks, persistStoredTasks } from './utils/employeeTasks';
-import { LayoutShell } from './components/LayoutShell';
+import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import GraphPersistenceControls from './components/GraphPersistenceControls';
+import { useAuth } from './context/AuthContext';
+import Login from './components/Login';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
@@ -149,6 +151,7 @@ const isAnalyticsPanelEnabled =
   (import.meta.env.VITE_ENABLE_ANALYTICS_PANEL ?? 'true').toLowerCase() !== 'false';
 
 function App() {
+  const { user, logout } = useAuth();
   const [graphs, setGraphs] = useState<GraphSummary[]>([]);
   const graphsRef = useRef<GraphSummary[]>([]);
   const [activeGraphId, setActiveGraphId] = useState<string | null>(null);
@@ -227,6 +230,16 @@ function App() {
   );
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
+
+  const visibleMenuItems = useMemo(() => {
+    if (!user) return [];
+    return MENU_ITEMS.filter((item) => {
+      if (item.id === 'admin' && user.role !== 'admin') {
+        return false;
+      }
+      return true;
+    });
+  }, [user]);
 
   useEffect(() => {
     const saved = localStorage.getItem('app-theme');
@@ -1855,8 +1868,8 @@ function App() {
 
           return Boolean(
             producerProduct &&
-              consumerProduct &&
-              producerProduct === consumerProduct
+            consumerProduct &&
+            producerProduct === consumerProduct
           );
         }
 
@@ -1870,9 +1883,8 @@ function App() {
           const targetId = getLinkEndpointId(link.target);
           let reason = 'filtered';
           if (link.type === 'dependency') {
-            reason = `missing module: ${moduleIds.has(sourceId) ? '' : sourceId} ${
-              moduleIds.has(targetId) ? '' : targetId
-            }`;
+            reason = `missing module: ${moduleIds.has(sourceId) ? '' : sourceId} ${moduleIds.has(targetId) ? '' : targetId
+              }`;
           } else if (link.type === 'domain') {
             const hasModule = moduleIds.has(sourceId);
             const hasDomain = !domainIds || domainIds.has(targetId);
@@ -2581,18 +2593,18 @@ function App() {
               );
               const dataOut = existingOutputIndex >= 0
                 ? module.dataOut.map((output, index) =>
-                    index === existingOutputIndex
-                      ? { ...output, label: normalizedName, artifactId }
-                      : output
-                  )
+                  index === existingOutputIndex
+                    ? { ...output, label: normalizedName, artifactId }
+                    : output
+                )
                 : [
-                    ...module.dataOut,
-                    {
-                      id: `output-${module.dataOut.length + 1}-${artifactId}`,
-                      label: normalizedName,
-                      artifactId
-                    }
-                  ];
+                  ...module.dataOut,
+                  {
+                    id: `output-${module.dataOut.length + 1}-${artifactId}`,
+                    label: normalizedName,
+                    artifactId
+                  }
+                ];
               next = { ...next, produces, dataOut };
             }
 
@@ -2690,10 +2702,10 @@ function App() {
                 dataOut = dataOut.map((output, index) =>
                   index === outputIndex
                     ? {
-                        ...output,
-                        label: normalizedName,
-                        artifactId
-                      }
+                      ...output,
+                      label: normalizedName,
+                      artifactId
+                    }
                     : output
                 );
               } else {
@@ -2946,7 +2958,7 @@ function App() {
             : 'Срок не определён';
           const status =
             fallbackStatusOrder[
-              Math.min(fallbackStatusOrder.length - 1, fallbackStatusIndex)
+            Math.min(fallbackStatusOrder.length - 1, fallbackStatusIndex)
             ];
           fallbackStatusIndex += 1;
           fallbackWorkItemMap.set(item.id, {
@@ -3402,334 +3414,341 @@ function App() {
     return presetGpnDefault;
   }, [themeMode]);
 
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <Theme
       key={themeMode}
       preset={themePreset}
       className={styles.app}
     >
-    <LayoutShell
-      currentView={viewMode}
-      onViewChange={setViewMode}
-      headerTitle={headerTitle}
-      headerDescription={headerDescription}
-      themeMode={themeMode}
-      onSetThemeMode={handleSetThemeMode}
-      graphs={graphs}
-      activeGraphId={activeGraphId}
-      onGraphSelect={handleGraphSelect}
-      onGraphCreate={handleCreateGraph}
-      onGraphDelete={handleDeleteGraph}
-      isGraphListLoading={isGraphsLoading}
-      graphListError={graphListError}
-    >
-      {snapshotError && (
-        <div className={styles.errorBanner} role="status" aria-live="polite">
-          <div className={styles.errorBannerContent}>
-            <Text size="s" view="alert">
-              {snapshotError}
-            </Text>
-            <Button
-              size="xs"
-              view="secondary"
-              label={isReloadingSnapshot ? 'Повторяем попытку...' : 'Повторить попытку'}
-              loading={isReloadingSnapshot}
-              disabled={isReloadingSnapshot}
-              onClick={handleRetryLoadSnapshot}
-            />
-          </div>
-        </div>
-      )}
-
-      <CreateGraphModal
-        isOpen={isCreatePanelOpen}
-        onClose={() => {
-          setIsCreatePanelOpen(false);
-          setGraphActionStatus(null);
-        }}
-        onCreate={() => void handleSubmitCreateGraph()}
-        graphName={graphNameDraft}
-        onGraphNameChange={(val) => setGraphNameDraft(val)}
-        sourceGraphId={graphSourceIdDraft}
-        onSourceGraphIdChange={handleGraphSourceIdChange}
-        copyOptions={graphCopyOptions}
-        onCopyOptionsChange={setGraphCopyOptions}
-        isSubmitting={isGraphActionInProgress}
-        status={graphActionStatus}
-        graphOptions={graphSelectOptions}
-        sourceGraphDraft={sourceGraphDraft ?? undefined}
-      />
-
-      {shouldShowInitialLoader ? (
-        <div className={styles.loadingState} style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-          <Loader size="m" />
-          <Text size="s" view="secondary">
-            Загружаем доступные графы и их содержимое...
-          </Text>
-        </div>
-      ) : (
-        <>
-          {adminNotice && (
-            <div
-              key={adminNotice.id}
-              className={`${styles.noticeBanner} ${
-                adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError
-              }`}
-              role={adminNotice.type === 'error' ? 'alert' : 'status'}
-              aria-live={adminNotice.type === 'error' ? 'assertive' : 'polite'}
-            >
-              <Text
-                size="s"
-                view="primary"
-                className={styles.noticeMessage}
-              >
-                {adminNotice.message}
+      <LayoutShell
+        currentView={viewMode}
+        onViewChange={setViewMode}
+        headerTitle={headerTitle}
+        headerDescription={headerDescription}
+        themeMode={themeMode}
+        onSetThemeMode={handleSetThemeMode}
+        graphs={graphs}
+        activeGraphId={activeGraphId}
+        onGraphSelect={handleGraphSelect}
+        onGraphCreate={handleCreateGraph}
+        onGraphDelete={handleDeleteGraph}
+        isGraphListLoading={isGraphsLoading}
+        graphListError={graphListError}
+        menuItems={visibleMenuItems}
+        currentUser={user ?? undefined}
+        onLogout={logout}
+      >
+        {snapshotError && (
+          <div className={styles.errorBanner} role="status" aria-live="polite">
+            <div className={styles.errorBannerContent}>
+              <Text size="s" view="alert">
+                {snapshotError}
               </Text>
-              <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
-            </div>
-          )}
-          <main
-            className={styles.main}
-            hidden={!isGraphActive}
-            aria-hidden={!isGraphActive}
-            style={{ display: isGraphActive ? undefined : 'none' }}
-          >
-          <aside
-            ref={sidebarRef}
-            className={styles.sidebar}
-            style={
-              sidebarMaxHeight
-                ? ({ '--sidebar-max-height': `${sidebarMaxHeight}px` } as CSSProperties)
-                : undefined
-            }
-          >
-            <div className={styles.sidebarScrollArea}>
-              <Collapse
-                label={
-                  <Text size="s" weight="semibold">
-                    Домены
-                  </Text>
-                }
-                isOpen={isDomainTreeOpen}
-                onClick={() => setIsDomainTreeOpen((prev) => !prev)}
-                className={styles.domainCollapse}
-              >
-                <div className={styles.domainCollapseContent}>
-                  {isDomainTreeOpen ? (
-                    <DomainTree
-                      tree={domainData}
-                      selected={selectedDomains}
-                      onToggle={handleDomainToggle}
-                      descendants={domainDescendants}
-                    />
-                  ) : null}
-                </div>
-              </Collapse>
-              <Collapse
-                label={
-                  <Text size="s" weight="semibold">
-                    Фильтры
-                  </Text>
-                }
-                isOpen={areFiltersOpen}
-                onClick={() => setAreFiltersOpen((prev) => !prev)}
-                className={styles.filtersCollapse}
-              >
-                <div className={styles.filtersCollapseContent}>
-                  <FiltersPanel
-                    search={search}
-                    onSearchChange={handleSearchChange}
-                    statuses={allStatuses}
-                    activeStatuses={statusFilters}
-                    onToggleStatus={(status) => {
-                      setSelectedNode(null);
-                      setStatusFilters((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(status)) {
-                          next.delete(status);
-                        } else {
-                          next.add(status);
-                        }
-                        return next;
-                      });
-                    }}
-                    products={products}
-                    productFilter={productFilter}
-                    onProductChange={(nextProducts) => {
-                      setSelectedNode(null);
-                      setProductFilter(nextProducts);
-                    }}
-                    companies={companies}
-                    companyFilter={companyFilter}
-                    onCompanyChange={(nextCompany) => {
-                      setSelectedNode(null);
-                      setCompanyFilter(nextCompany);
-                    }}
-                    showAllConnections={showAllConnections}
-                    onToggleConnections={(value) => setShowAllConnections(value)}
-                  />
-                </div>
-              </Collapse>
-            </div>
-          </aside>
-          <section className={styles.graphSection}>
-            <div className={styles.graphContainer}>
-              <GraphView
-                modules={graphModules}
-                domains={graphDomains}
-                artifacts={graphArtifacts}
-                initiatives={graphInitiatives}
-                links={filteredLinks}
-                graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
-                onSelect={handleSelectNode}
-                highlightedNode={selectedNode?.id ?? null}
-                visibleDomainIds={relevantDomainIds}
-                visibleModuleStatuses={statusFilters}
-                layoutPositions={layoutPositions}
-                normalizationRequest={layoutNormalizationRequest}
-                onLayoutChange={handleLayoutChange}
+              <Button
+                size="xs"
+                view="secondary"
+                label={isReloadingSnapshot ? 'Повторяем попытку...' : 'Повторить попытку'}
+                loading={isReloadingSnapshot}
+                disabled={isReloadingSnapshot}
+                onClick={handleRetryLoadSnapshot}
               />
             </div>
-            {shouldShowAnalytics && (
-              <div className={styles.analytics}>
-                <AnalyticsPanel modules={filteredModules} domainNameMap={domainNameMap} />
+          </div>
+        )}
+
+        <CreateGraphModal
+          isOpen={isCreatePanelOpen}
+          onClose={() => {
+            setIsCreatePanelOpen(false);
+            setGraphActionStatus(null);
+          }}
+          onCreate={() => void handleSubmitCreateGraph()}
+          graphName={graphNameDraft}
+          onGraphNameChange={(val) => setGraphNameDraft(val)}
+          sourceGraphId={graphSourceIdDraft}
+          onSourceGraphIdChange={handleGraphSourceIdChange}
+          copyOptions={graphCopyOptions}
+          onCopyOptionsChange={setGraphCopyOptions}
+          isSubmitting={isGraphActionInProgress}
+          status={graphActionStatus}
+          graphOptions={graphSelectOptions}
+          sourceGraphDraft={sourceGraphDraft ?? undefined}
+        />
+
+        {shouldShowInitialLoader ? (
+          <div className={styles.loadingState} style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            <Loader size="m" />
+            <Text size="s" view="secondary">
+              Загружаем доступные графы и их содержимое...
+            </Text>
+          </div>
+        ) : (
+          <>
+            {adminNotice && (
+              <div
+                key={adminNotice.id}
+                className={`${styles.noticeBanner} ${adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError
+                  }`}
+                role={adminNotice.type === 'error' ? 'alert' : 'status'}
+                aria-live={adminNotice.type === 'error' ? 'assertive' : 'polite'}
+              >
+                <Text
+                  size="s"
+                  view="primary"
+                  className={styles.noticeMessage}
+                >
+                  {adminNotice.message}
+                </Text>
+                <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-          </section>
-          <aside className={styles.details}>
-            <NodeDetails
-              node={selectedNode}
-              onClose={() => setSelectedNode(null)}
-              onNavigate={handleNavigate}
-              moduleNameMap={moduleNameMap}
-              artifactNameMap={artifactNameMap}
-              domainNameMap={domainNameMap}
-              expertProfiles={expertProfiles}
-            />
-          </aside>
-      </main>
-      {(statsActivated || isStatsActive) && (
-        <main
-          className={styles.statsMain}
-          hidden={!isStatsActive}
-          aria-hidden={!isStatsActive}
-          style={{ display: isStatsActive ? undefined : 'none' }}
-        >
-          <Suspense fallback={<Loader size="m" />}>
-            <StatsDashboard
-              modules={moduleData}
-              domains={domainData}
-              artifacts={artifactData}
-              reuseHistory={reuseIndexHistory}
-            />
-          </Suspense>
-        </main>
-      )}
-      <main
-        className={styles.expertMain}
-        hidden={!isExpertsActive}
-        aria-hidden={!isExpertsActive}
-        style={{ display: isExpertsActive ? undefined : 'none' }}
-      >
-        <ExpertExplorer
-          experts={expertProfiles}
-          modules={moduleData}
-          moduleNameMap={moduleNameMap}
-          moduleDomainMap={moduleDomainMap}
-          domainNameMap={domainNameMap}
-          initiatives={initiativeData}
-          onUpdateExpertSkills={handleUpdateExpertSkills}
-          onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
-        />
-      </main>
-      <main
-        className={styles.initiativesMain}
-        hidden={!isInitiativesActive}
-        aria-hidden={!isInitiativesActive}
-        style={{ display: isInitiativesActive ? undefined : 'none' }}
-      >
-        <InitiativePlanner
-          initiatives={initiativeData}
-          experts={expertProfiles}
-          domains={domainData}
-          modules={moduleData}
-          domainNameMap={domainNameMap}
-          employeeTasks={employeeTasks}
-          onTogglePin={handleToggleInitiativePin}
-          onAddRisk={handleAddInitiativeRisk}
-          onRemoveRisk={handleRemoveInitiativeRisk}
-          onStatusChange={handleInitiativeStatusChange}
-          onExport={handleInitiativeExport}
-          onCreateInitiative={handlePlannerCreateInitiative}
-          onUpdateInitiative={handlePlannerUpdateInitiative}
-        />
-      </main>
-      <main
-        className={styles.employeeTasksMain}
-        hidden={!isEmployeeTasksActive}
-        aria-hidden={!isEmployeeTasksActive}
-        style={{ display: isEmployeeTasksActive ? undefined : 'none' }}
-      >
-        <EmployeeWorkloadTrack
-          experts={expertProfiles}
-          initiatives={initiativeData}
-          tasks={employeeTasks}
-          onTasksChange={setEmployeeTasks}
-        />
-      </main>
-      <main
-        className={styles.creationMain}
-        hidden={!isAdminActive}
-        aria-hidden={!isAdminActive}
-        style={{ display: isAdminActive ? undefined : 'none' }}
-      >
-        <GraphPersistenceControls
-          modules={moduleData}
-          domains={domainData}
-          artifacts={artifactData}
-          experts={expertProfiles}
-          initiatives={initiativeData}
-          onImport={handleImportGraph}
-          onImportFromGraph={handleImportFromExistingGraph}
-          graphs={graphs}
-          activeGraphId={activeGraphId}
-          onGraphSelect={handleGraphSelect}
-          onGraphCreate={handleCreateGraph}
-          onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
-          isGraphListLoading={isGraphsLoading}
-          syncStatus={syncStatus}
-          layout={layoutSnapshot}
-          isSyncAvailable={isSyncAvailable}
-          onRetryLoad={handleRetryLoadSnapshot}
-          isReloading={isReloadingSnapshot}
-        />
-        <AdminPanel
-          modules={moduleData}
-          domains={domainData}
-          artifacts={artifactData}
-          experts={expertProfiles}
-          initiatives={initiativeData}
-          employeeTasks={employeeTasks}
-          moduleDraftPrefill={moduleDraftPrefill}
-          onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
-          onCreateModule={handleCreateModule}
-          onUpdateModule={handleUpdateModule}
-          onDeleteModule={handleDeleteModule}
-          onCreateDomain={handleCreateDomain}
-          onUpdateDomain={handleUpdateDomain}
-          onDeleteDomain={handleDeleteDomain}
-          onCreateArtifact={handleCreateArtifact}
-          onUpdateArtifact={handleUpdateArtifact}
-          onDeleteArtifact={handleDeleteArtifact}
-          onCreateExpert={handleCreateExpert}
-          onUpdateExpert={handleUpdateExpert}
-          onDeleteExpert={handleDeleteExpert}
-          onUpdateEmployeeTasks={setEmployeeTasks}
-        />
-      </main>
-      </>
-    )}
-    </LayoutShell>
+            <main
+              className={styles.main}
+              hidden={!isGraphActive}
+              aria-hidden={!isGraphActive}
+              style={{ display: isGraphActive ? undefined : 'none' }}
+            >
+              <aside
+                ref={sidebarRef}
+                className={styles.sidebar}
+                style={
+                  sidebarMaxHeight
+                    ? ({ '--sidebar-max-height': `${sidebarMaxHeight}px` } as CSSProperties)
+                    : undefined
+                }
+              >
+                <div className={styles.sidebarScrollArea}>
+                  <Collapse
+                    label={
+                      <Text size="s" weight="semibold">
+                        Домены
+                      </Text>
+                    }
+                    isOpen={isDomainTreeOpen}
+                    onClick={() => setIsDomainTreeOpen((prev) => !prev)}
+                    className={styles.domainCollapse}
+                  >
+                    <div className={styles.domainCollapseContent}>
+                      {isDomainTreeOpen ? (
+                        <DomainTree
+                          tree={domainData}
+                          selected={selectedDomains}
+                          onToggle={handleDomainToggle}
+                          descendants={domainDescendants}
+                        />
+                      ) : null}
+                    </div>
+                  </Collapse>
+                  <Collapse
+                    label={
+                      <Text size="s" weight="semibold">
+                        Фильтры
+                      </Text>
+                    }
+                    isOpen={areFiltersOpen}
+                    onClick={() => setAreFiltersOpen((prev) => !prev)}
+                    className={styles.filtersCollapse}
+                  >
+                    <div className={styles.filtersCollapseContent}>
+                      <FiltersPanel
+                        search={search}
+                        onSearchChange={handleSearchChange}
+                        statuses={allStatuses}
+                        activeStatuses={statusFilters}
+                        onToggleStatus={(status) => {
+                          setSelectedNode(null);
+                          setStatusFilters((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(status)) {
+                              next.delete(status);
+                            } else {
+                              next.add(status);
+                            }
+                            return next;
+                          });
+                        }}
+                        products={products}
+                        productFilter={productFilter}
+                        onProductChange={(nextProducts) => {
+                          setSelectedNode(null);
+                          setProductFilter(nextProducts);
+                        }}
+                        companies={companies}
+                        companyFilter={companyFilter}
+                        onCompanyChange={(nextCompany) => {
+                          setSelectedNode(null);
+                          setCompanyFilter(nextCompany);
+                        }}
+                        showAllConnections={showAllConnections}
+                        onToggleConnections={(value) => setShowAllConnections(value)}
+                      />
+                    </div>
+                  </Collapse>
+                </div>
+              </aside>
+              <section className={styles.graphSection}>
+                <div className={styles.graphContainer}>
+                  <GraphView
+                    modules={graphModules}
+                    domains={graphDomains}
+                    artifacts={graphArtifacts}
+                    initiatives={graphInitiatives}
+                    links={filteredLinks}
+                    graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
+                    onSelect={handleSelectNode}
+                    highlightedNode={selectedNode?.id ?? null}
+                    visibleDomainIds={relevantDomainIds}
+                    visibleModuleStatuses={statusFilters}
+                    layoutPositions={layoutPositions}
+                    normalizationRequest={layoutNormalizationRequest}
+                    onLayoutChange={handleLayoutChange}
+                  />
+                </div>
+                {shouldShowAnalytics && (
+                  <div className={styles.analytics}>
+                    <AnalyticsPanel modules={filteredModules} domainNameMap={domainNameMap} />
+                  </div>
+                )}
+              </section>
+              <aside className={styles.details}>
+                <NodeDetails
+                  node={selectedNode}
+                  onClose={() => setSelectedNode(null)}
+                  onNavigate={handleNavigate}
+                  moduleNameMap={moduleNameMap}
+                  artifactNameMap={artifactNameMap}
+                  domainNameMap={domainNameMap}
+                  expertProfiles={expertProfiles}
+                />
+              </aside>
+            </main>
+            {(statsActivated || isStatsActive) && (
+              <main
+                className={styles.statsMain}
+                hidden={!isStatsActive}
+                aria-hidden={!isStatsActive}
+                style={{ display: isStatsActive ? undefined : 'none' }}
+              >
+                <Suspense fallback={<Loader size="m" />}>
+                  <StatsDashboard
+                    modules={moduleData}
+                    domains={domainData}
+                    artifacts={artifactData}
+                    reuseHistory={reuseIndexHistory}
+                  />
+                </Suspense>
+              </main>
+            )}
+            <main
+              className={styles.expertMain}
+              hidden={!isExpertsActive}
+              aria-hidden={!isExpertsActive}
+              style={{ display: isExpertsActive ? undefined : 'none' }}
+            >
+              <ExpertExplorer
+                experts={expertProfiles}
+                modules={moduleData}
+                moduleNameMap={moduleNameMap}
+                moduleDomainMap={moduleDomainMap}
+                domainNameMap={domainNameMap}
+                initiatives={initiativeData}
+                onUpdateExpertSkills={handleUpdateExpertSkills}
+                onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
+              />
+            </main>
+            <main
+              className={styles.initiativesMain}
+              hidden={!isInitiativesActive}
+              aria-hidden={!isInitiativesActive}
+              style={{ display: isInitiativesActive ? undefined : 'none' }}
+            >
+              <InitiativePlanner
+                initiatives={initiativeData}
+                experts={expertProfiles}
+                domains={domainData}
+                modules={moduleData}
+                domainNameMap={domainNameMap}
+                employeeTasks={employeeTasks}
+                onTogglePin={handleToggleInitiativePin}
+                onAddRisk={handleAddInitiativeRisk}
+                onRemoveRisk={handleRemoveInitiativeRisk}
+                onStatusChange={handleInitiativeStatusChange}
+                onExport={handleInitiativeExport}
+                onCreateInitiative={handlePlannerCreateInitiative}
+                onUpdateInitiative={handlePlannerUpdateInitiative}
+              />
+            </main>
+            <main
+              className={styles.employeeTasksMain}
+              hidden={!isEmployeeTasksActive}
+              aria-hidden={!isEmployeeTasksActive}
+              style={{ display: isEmployeeTasksActive ? undefined : 'none' }}
+            >
+              <EmployeeWorkloadTrack
+                experts={expertProfiles}
+                initiatives={initiativeData}
+                tasks={employeeTasks}
+                onTasksChange={setEmployeeTasks}
+              />
+            </main>
+            <main
+              className={styles.creationMain}
+              hidden={!isAdminActive}
+              aria-hidden={!isAdminActive}
+              style={{ display: isAdminActive ? undefined : 'none' }}
+            >
+              <GraphPersistenceControls
+                modules={moduleData}
+                domains={domainData}
+                artifacts={artifactData}
+                experts={expertProfiles}
+                initiatives={initiativeData}
+                onImport={handleImportGraph}
+                onImportFromGraph={handleImportFromExistingGraph}
+                graphs={graphs}
+                activeGraphId={activeGraphId}
+                onGraphSelect={handleGraphSelect}
+                onGraphCreate={handleCreateGraph}
+                onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
+                isGraphListLoading={isGraphsLoading}
+                syncStatus={syncStatus}
+                layout={layoutSnapshot}
+                isSyncAvailable={isSyncAvailable}
+                onRetryLoad={handleRetryLoadSnapshot}
+                isReloading={isReloadingSnapshot}
+              />
+              <AdminPanel
+                modules={moduleData}
+                domains={domainData}
+                artifacts={artifactData}
+                experts={expertProfiles}
+                initiatives={initiativeData}
+                employeeTasks={employeeTasks}
+                moduleDraftPrefill={moduleDraftPrefill}
+                onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
+                onCreateModule={handleCreateModule}
+                onUpdateModule={handleUpdateModule}
+                onDeleteModule={handleDeleteModule}
+                onCreateDomain={handleCreateDomain}
+                onUpdateDomain={handleUpdateDomain}
+                onDeleteDomain={handleDeleteDomain}
+                onCreateArtifact={handleCreateArtifact}
+                onUpdateArtifact={handleUpdateArtifact}
+                onDeleteArtifact={handleDeleteArtifact}
+                onCreateExpert={handleCreateExpert}
+                onUpdateExpert={handleUpdateExpert}
+                onDeleteExpert={handleDeleteExpert}
+                onUpdateEmployeeTasks={setEmployeeTasks}
+                currentUser={user}
+              />
+            </main>
+          </>
+        )}
+      </LayoutShell>
     </Theme>
   );
 }
@@ -4591,7 +4610,7 @@ function filterDomainTreeByIds(domains: DomainNode[], allowed: Set<string>): Dom
       return {
         ...domain,
         children: children.length > 0 ? children : undefined
-      };
+      } as DomainNode;
     })
     .filter((domain): domain is DomainNode => domain !== null);
 }
