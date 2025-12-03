@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm exec vite -- --host 0.0.0.0 --port 3003",
+    "dev": "npm exec vite -- --host 0.0.0.0 --port 3004",
     "server": "npm exec tsx server/index.ts",
     "dev:full": "npm exec concurrently \"npm run server\" \"npm run dev\"",
     "test:server": "npm exec tsx --test server/graphStore.test.ts",

@@ -15,7 +15,9 @@ import { IconHamburger } from '@consta/icons/IconHamburger';
 import { IconClose } from '@consta/icons/IconClose';
 import { IconArrowLeft } from '@consta/icons/IconArrowLeft';
 import { IconArrowRight } from '@consta/icons/IconArrowRight';
+import { IconExit } from '@consta/icons/IconExit';
 import type { GraphSummary } from '../types/graph';
+import type { User } from '../context/AuthContext';
 import styles from './LayoutShell.module.css';
 
 type ViewMode = 'graph' | 'stats' | 'experts' | 'initiatives' | 'employee-tasks' | 'admin';
@@ -37,26 +39,30 @@ interface LayoutShellProps {
   onGraphDelete?: (graphId: string) => void;
   isGraphListLoading?: boolean;
   graphListError?: string | null;
+  currentUser?: User;
+  onLogout?: () => void;
 }
 
-const MENU_ITEMS: Array<{
+import { IconComponent } from '@consta/icons/Icon';
+
+export const MENU_ITEMS: Array<{
   id: ViewMode;
   label: string;
-  icon: React.ElementType;
+  icon: IconComponent;
 }> = [
-  { id: 'graph', label: 'Граф', icon: IconNodes },
-  { id: 'stats', label: 'Статистика', icon: IconLineAndBarChart },
-  { id: 'experts', label: 'Экспертиза', icon: IconUser },
-  { id: 'initiatives', label: 'Инициативы', icon: IconFlagFilled },
-  { id: 'employee-tasks', label: 'Задачи', icon: IconCheck },
-  { id: 'admin', label: 'Администрирование', icon: IconSettings },
-];
+    { id: 'graph', label: 'Граф', icon: IconNodes },
+    { id: 'stats', label: 'Статистика', icon: IconLineAndBarChart },
+    { id: 'experts', label: 'Экспертиза', icon: IconUser },
+    { id: 'initiatives', label: 'Инициативы', icon: IconFlagFilled },
+    { id: 'employee-tasks', label: 'Задачи', icon: IconCheck },
+    { id: 'admin', label: 'Администрирование', icon: IconSettings },
+  ];
 
 const SIDEBAR_WIDTH = 280;
 const SIDEBAR_WIDTH_COLLAPSED = 80;
 const MOBILE_BREAKPOINT = 768;
 
-export const LayoutShell: React.FC<LayoutShellProps> = ({
+export const LayoutShell: React.FC<LayoutShellProps & { menuItems?: typeof MENU_ITEMS }> = ({
   currentView,
   onViewChange,
   headerTitle,
@@ -72,6 +78,9 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
   onGraphDelete,
   isGraphListLoading = false,
   graphListError = null,
+  menuItems = MENU_ITEMS,
+  currentUser,
+  onLogout,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -163,25 +172,25 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
               Nedra.Expert Node
             </Text>
           )}
-          <Button 
-             className={styles.collapseButton}
-             view="clear"
-             size="s"
-             onlyIcon
-             iconLeft={isCollapsed ? IconArrowRight : IconArrowLeft}
-             onClick={() => setIsCollapsed(!isCollapsed)}
+          <Button
+            className={styles.collapseButton}
+            view="clear"
+            size="s"
+            onlyIcon
+            iconLeft={isCollapsed ? IconArrowRight : IconArrowLeft}
+            onClick={() => setIsCollapsed(!isCollapsed)}
           />
-          <button 
+          <button
             className={styles.mobileCloseButton}
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label="Закрыть меню"
           >
-             <IconClose size="s" />
+            <IconClose size="s" />
           </button>
         </div>
-        
+
         <nav className={styles.sidebarContent}>
-          {MENU_ITEMS.map((item) => {
+          {menuItems.map((item) => {
             const isActive = currentView === item.id;
             return (
               <Button
@@ -198,7 +207,7 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
             );
           })}
         </nav>
-        
+
         {!isCollapsed && (
           <div className={styles.graphSection}>
             <Text size="xs" weight="semibold" view="secondary" className={styles.graphSectionTitle}>
@@ -253,7 +262,7 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
             </div>
           </div>
         )}
-        
+
         {!isCollapsed && (
           <div className={styles.sidebarFooter}>
             <div className={styles.themeRow}>
@@ -289,7 +298,7 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
       <div className={styles.mainContent}>
         <header className={styles.header}>
           <div className={styles.headerLeft}>
-            <button 
+            <button
               className={styles.mobileMenuButton}
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Открыть меню"
@@ -308,10 +317,33 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
             </div>
           </div>
           <div className={styles.headerActions}>
+            {currentUser && (
+              <div className={styles.userInfo}>
+                <IconUser size="s" />
+                <div className={styles.userDetails}>
+                  <Text size="s" weight="semibold">
+                    {currentUser.username}
+                  </Text>
+                  <Text size="xs" view="secondary">
+                    {currentUser.role === 'admin' ? 'Администратор' : 'Пользователь'}
+                  </Text>
+                </div>
+                {onLogout && (
+                  <Button
+                    view="ghost"
+                    size="s"
+                    onlyIcon
+                    iconLeft={IconExit}
+                    onClick={onLogout}
+                    title="Выйти"
+                  />
+                )}
+              </div>
+            )}
             {headerActions}
           </div>
         </header>
-        
+
         <main className={styles.pageContent}>
           {children}
         </main>

@@ -136,7 +136,7 @@ type AdminPanelProps = {
   onUpdateEmployeeTasks: (tasks: TaskListItem[]) => void;
 };
 
-type AdminTab = 'module' | 'domain' | 'artifact' | 'expert' | 'role';
+type AdminTab = 'module' | 'domain' | 'artifact' | 'expert' | 'role' | 'user' | 'logs';
 
 type SelectItem<Value extends string> = {
   label: string;
@@ -187,7 +187,9 @@ const adminTabs = [
   { label: 'Домены', value: 'domain' },
   { label: 'Артефакты', value: 'artifact' },
   { label: 'Сотрудники', value: 'expert' },
-  { label: 'Роли и компетенции', value: 'role' }
+  { label: 'Роли и компетенции', value: 'role' },
+  { label: 'Пользователи', value: 'user' },
+  { label: 'Журнал входов', value: 'logs' }
 ] as const satisfies readonly { label: string; value: AdminTab }[];
 
 const ROOT_DOMAIN_OPTION = '__root__';
@@ -2535,7 +2537,7 @@ const ModuleForm: React.FC<ModuleFormProps> = ({
         {moduleSections[current].id === 'calculation' && renderCalculationSection()}
         {moduleSections[current].id === 'technical' && renderTechnicalSection()}
         {moduleSections[current].id === 'nonFunctional' && renderNonFunctionalSection()}
-        
+
         <div className={styles.stepActions}>
           {current > 0 && (
             <Button size="s" view="ghost" label="Назад" onClick={() => goToStep(current - 1)} />
@@ -3381,21 +3383,21 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
       const existingSkill = prev.draft.skills.find((skill) => skill.id === skillId);
       const nextSkills = existingSkill
         ? prev.draft.skills.map((skill) =>
-            skill.id === skillId ? { ...skill, level, proofStatus } : skill
-          )
+          skill.id === skillId ? { ...skill, level, proofStatus } : skill
+        )
         : [
-            ...prev.draft.skills,
-            {
-              id: skillId,
-              level,
-              proofStatus,
-              evidence: [],
-              artifacts: [],
-              createdAt: new Date().toISOString(),
-              interest: 'medium',
-              availableFte: 0
-            }
-          ];
+          ...prev.draft.skills,
+          {
+            id: skillId,
+            level,
+            proofStatus,
+            evidence: [],
+            artifacts: [],
+            createdAt: new Date().toISOString(),
+            interest: 'medium',
+            availableFte: 0
+          }
+        ];
 
       const nextCompetencies = updateCompetenciesFromSkills(
         nextSkills,
@@ -3425,8 +3427,7 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
           missingCompetencies: remainingMissing,
           warnings: [
             ...prev.result.warnings,
-            `Компетенция «${entry.competencyName}» добавлена как hard skill и связана с ролью «${
-              entry.roleTitle || 'роль не указана'
+            `Компетенция «${entry.competencyName}» добавлена как hard skill и связана с ролью «${entry.roleTitle || 'роль не указана'
             }».`
           ]
         }
@@ -3783,18 +3784,18 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
       const nextSkills = existing
         ? draft.skills
         : [
-            ...draft.skills,
-            {
-              id: definition.id,
-              level: definition.recommendedLevel as SkillLevel,
-              proofStatus: 'claimed' as SkillEvidenceStatus,
-              evidence: [],
-              createdAt: new Date().toISOString(),
-              artifacts: [],
-              interest: 'medium',
-              availableFte: 0
-            }
-          ];
+          ...draft.skills,
+          {
+            id: definition.id,
+            level: definition.recommendedLevel as SkillLevel,
+            proofStatus: 'claimed' as SkillEvidenceStatus,
+            evidence: [],
+            createdAt: new Date().toISOString(),
+            artifacts: [],
+            interest: 'medium',
+            availableFte: 0
+          }
+        ];
       const nextCompetencies = updateCompetenciesFromSkills(
         nextSkills,
         draft.competencies,
@@ -3826,9 +3827,9 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
     const nextSkills = draft.skills.map((skill) =>
       skill.id === skillId
         ? {
-            ...skill,
-            level
-          }
+          ...skill,
+          level
+        }
         : skill
     );
     const nextCompetencies = updateCompetenciesFromSkills(
@@ -3848,9 +3849,9 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
     const nextSkills = draft.skills.map((skill) =>
       skill.id === skillId
         ? {
-            ...skill,
-            proofStatus: status
-          }
+          ...skill,
+          proofStatus: status
+        }
         : skill
     );
     const nextCompetencies = updateCompetenciesFromSkills(
@@ -3909,10 +3910,10 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
       const schedule =
         previousTaskId === null
           ? ({
-              type: 'start-duration',
-              startDate: formatIsoDate(addDays(today, index * 2)),
-              durationDays
-            } as const)
+            type: 'start-duration',
+            startDate: formatIsoDate(addDays(today, index * 2)),
+            durationDays
+          } as const)
           : ({ type: 'after-task', predecessorId: previousTaskId, durationDays } as const);
 
       previousTaskId = id;
@@ -4267,9 +4268,9 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
                       value={
                         isActive && skill
                           ?
-                              hardSkillEvidenceItems.find(
-                                (item) => item.value === skill.proofStatus
-                              ) ?? null
+                          hardSkillEvidenceItems.find(
+                            (item) => item.value === skill.proofStatus
+                          ) ?? null
                           : null
                       }
                       getItemLabel={(item) => item.label}

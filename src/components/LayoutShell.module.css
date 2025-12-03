@@ -152,6 +152,28 @@
   /* */
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--control-radius);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-bg-border);
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .pageContent {
   flex: 1;
   overflow: hidden;
@@ -229,7 +251,8 @@
     transform: translateX(-100%);
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
     background-color: var(--color-bg-secondary);
-    z-index: 100; /* Higher on mobile */
+    z-index: 100;
+    /* Higher on mobile */
   }
 
   .sidebarOpen {
@@ -239,7 +262,7 @@
   .mobileMenuButton {
     display: flex;
   }
-  
+
   .mobileCloseButton {
     display: flex;
   }
@@ -247,16 +270,17 @@
   .header {
     padding: 0 16px;
   }
-  
+
   .overlay {
     display: block;
   }
-  
+
   .sidebarCollapsed {
-    width: 280px; /* No collapse on mobile */
+    width: 280px;
+    /* No collapse on mobile */
   }
-  
+
   .collapseButton {
-     display: none;
+    display: none;
   }
 }

@@ -12,10 +12,107 @@ import {
   loadSnapshot,
   persistSnapshot
 } from './graphStore';
+import { listLogs, logLogin } from './logStore';
+import { createUser, deleteUser, findUser, listUsers, updateUser } from './userStore';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
+
+// Auth Endpoints
+
+app.post('/api/login', (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    res.status(400).json({ message: 'Username and password are required' });
+    return;
+  }
+
+  const user = findUser(username);
+
+  if (!user || user.password !== password) {
+    // Log failed attempt if needed, but for now only successful ones as per request context usually implies tracking access
+    // Or we can log failure too. Let's log failure as well for better security auditing.
+    if (user) {
+      logLogin(user.id, username, false, req.ip);
+    } else {
+      logLogin('unknown', username, false, req.ip);
+    }
+
+    res.status(401).json({ message: 'Invalid credentials' });
+    return;
+  }
+
+  // Log successful login
+  logLogin(user.id, user.username, true, req.ip);
+
+  // In a real app, return a JWT token here.
+  // For this prototype, we just return the user info.
+  res.json({
+    id: user.id,
+    username: user.username,
+    role: user.role
+  });
+});
+
+app.get('/api/logs', (_req: Request, res: Response) => {
+  // In a real app, verify admin token here
+  res.json(listLogs());
+});
+
+app.get('/api/users', (_req: Request, res: Response) => {
+  // In a real app, verify admin token here
+  res.json(listUsers());
+});
+
+app.post('/api/users', (req: Request, res: Response) => {
+  // In a real app, verify admin token here
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    res.status(400).json({ message: 'Missing required fields' });
+    return;
+  }
+
+  try {
+    const newUser = createUser(username, password, role);
+    res.status(201).json({
+      id: newUser.id,
+      username: newUser.username,
+      role: newUser.role
+    });
+  } catch (error) {
+    res.status(400).json({ message: error instanceof Error ? error.message : 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { password, role } = req.body;
+
+  try {
+    const updatedUser = updateUser(id, { password, role });
+    res.json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      role: updatedUser.role
+    });
+  } catch (error) {
+    res.status(404).json({ message: error instanceof Error ? error.message : 'User not found' });
+  }
+});
+
+app.delete('/api/users/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    deleteUser(id);
+    res.status(204).end();
+  } catch (error) {
+    res.status(404).json({ message: error instanceof Error ? error.message : 'User not found' });
+  }
+});
 
 app.get('/api/graphs', (_req: Request, res: Response) => {
   try {
@@ -112,7 +209,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 void initializeGraphStore()
   .then(() => {
-    const port = Number.parseInt(process.env.PORT ?? '4000', 10);
+    const port = Number.parseInt(process.env.PORT ?? '3003', 10);
     const server = app.listen(port, () => {
       console.log(`Graph storage server listening on port ${port}`);
     });
