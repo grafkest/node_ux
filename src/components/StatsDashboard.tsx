@@ -4,6 +4,7 @@ import { Line, type LineProps } from '@consta/charts/Line';
 import { Pie, type PieProps } from '@consta/charts/Pie';
 import { Card } from '@consta/uikit/Card';
 import { Text } from '@consta/uikit/Text';
+import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import {
   artifacts as allArtifacts,
@@ -237,14 +238,14 @@ const StatsDashboard = ({
       style: { fontSize: 12 }
     },
     xAxis: {
-        label: {
-            style: { fontSize: 12 }
-        }
+      label: {
+        style: { fontSize: 12 }
+      }
     },
     yAxis: {
-        label: {
-            style: { fontSize: 12 }
-        }
+      label: {
+        style: { fontSize: 12 }
+      }
     },
     tooltip: ({ type, count }) => ({
       name: type,
@@ -268,9 +269,9 @@ const StatsDashboard = ({
       }
     },
     xAxis: {
-        label: {
-            style: { fontSize: 12 }
-        }
+      label: {
+        style: { fontSize: 12 }
+      }
     },
     tooltip: ({ averagePercent, periodLabel }) => ({
       name: periodLabel,
@@ -312,181 +313,231 @@ const StatsDashboard = ({
     autoFit: true
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5 }
+    }
+  };
+
   return (
-    <div className={styles.container}>
+    <motion.div
+      className={styles.container}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       <section className={styles.summaryGrid}>
-        <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="xs" view="secondary">
-            Активные системы
-          </Text>
-          <Text size="3xl" weight="bold" className={styles.summaryValue}>
-            {systemCount}
-          </Text>
-          <Text size="xs" view="ghost">
-            Сформированы по уникальным продуктовым контурам
-          </Text>
-        </Card>
-        <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="xs" view="secondary">
-            Модули в каталоге
-          </Text>
-          <Text size="3xl" weight="bold" className={styles.summaryValue}>
-            {moduleCount}
-          </Text>
-          <Text size="xs" view="ghost">
-            Включая совместно используемые компоненты
-          </Text>
-        </Card>
-        <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="xs" view="secondary">
-            Домены без функций
-          </Text>
-          <Text size="3xl" weight="bold" className={styles.summaryValue}>
-            {domainWithoutModules.length}
-          </Text>
-          <Text size="xs" view="ghost">
-            Требуют наполнения или ревизии
-          </Text>
-        </Card>
-        <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="xs" view="secondary">
-            Артефакты данных
-          </Text>
-          <Text size="3xl" weight="bold" className={styles.summaryValue}>
-            {artifactCount}
-          </Text>
-          <Text size="xs" view="ghost">
-            Используются при обмене между командами
-          </Text>
-        </Card>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="xs" view="secondary">
+              Активные системы
+            </Text>
+            <Text size="3xl" weight="bold" className={styles.summaryValue}>
+              {systemCount}
+            </Text>
+            <Text size="xs" view="ghost">
+              Сформированы по уникальным продуктовым контурам
+            </Text>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="xs" view="secondary">
+              Модули в каталоге
+            </Text>
+            <Text size="3xl" weight="bold" className={styles.summaryValue}>
+              {moduleCount}
+            </Text>
+            <Text size="xs" view="ghost">
+              Включая совместно используемые компоненты
+            </Text>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="xs" view="secondary">
+              Домены без функций
+            </Text>
+            <Text size="3xl" weight="bold" className={styles.summaryValue}>
+              {domainWithoutModules.length}
+            </Text>
+            <Text size="xs" view="ghost">
+              Требуют наполнения или ревизии
+            </Text>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.summaryCard} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="xs" view="secondary">
+              Артефакты данных
+            </Text>
+            <Text size="3xl" weight="bold" className={styles.summaryValue}>
+              {artifactCount}
+            </Text>
+            <Text size="xs" view="ghost">
+              Используются при обмене между командами
+            </Text>
+          </Card>
+        </motion.div>
       </section>
 
       <section className={styles.chartsGrid}>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Статусы модулей
-          </Text>
-          <Pie {...modulesByStatusPieProps} />
-        </Card>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Артефакты по типам файлов
-          </Text>
-          <Column {...artifactColumnProps} />
-        </Card>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Динамика среднего индекса переиспользования
-          </Text>
-          <Line {...reuseLineProps} />
-        </Card>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Статусы модулей
+            </Text>
+            <Pie {...modulesByStatusPieProps} />
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Артефакты по типам файлов
+            </Text>
+            <Column {...artifactColumnProps} />
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Динамика среднего индекса переиспользования
+            </Text>
+            <Line {...reuseLineProps} />
+          </Card>
+        </motion.div>
       </section>
 
       <section className={styles.chartsGrid}>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Инструменты деплоя
-          </Text>
-          <Pie {...deploymentPieProps} />
-        </Card>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Каналы доставки клиентам
-          </Text>
-          <Pie {...clientPieProps} />
-        </Card>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Компании-лидеры по числу модулей
-          </Text>
-          <Bar {...teamBarProps} />
-        </Card>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Инструменты деплоя
+            </Text>
+            <Pie {...deploymentPieProps} />
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Каналы доставки клиентам
+            </Text>
+            <Pie {...clientPieProps} />
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Компании-лидеры по числу модулей
+            </Text>
+            <Bar {...teamBarProps} />
+          </Card>
+        </motion.div>
       </section>
 
       <section className={styles.splitGrid}>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Разрез по системам и статусам
-          </Text>
-          <div className={styles.tableWrapper}>
-            <table className={styles.systemTable}>
-              <thead>
-                <tr>
-                  <th>Система</th>
-                  <th>Всего</th>
-                  {statusOrder.map((status) => (
-                    <th key={status}>{statusLabels[status]}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {systems.map((system) => (
-                  <tr key={system.name}>
-                    <td>{system.name}</td>
-                    <td>{system.total}</td>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Разрез по системам и статусам
+            </Text>
+            <div className={styles.tableWrapper}>
+              <table className={styles.systemTable}>
+                <thead>
+                  <tr>
+                    <th>Система</th>
+                    <th>Всего</th>
                     {statusOrder.map((status) => (
-                      <td key={status}>
-                        <span className={styles.statusPill} data-status={statusBadgeView[status]}>
-                          {system.statuses[status]}
-                        </span>
-                      </td>
+                      <th key={status}>{statusLabels[status]}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-          <Text size="s" weight="semibold" className={styles.cardTitle}>
-            Домены без закреплённых функций
-          </Text>
-          <div className={styles.domainList}>
-            {domainWithoutModules.length === 0 ? (
-              <Text size="s" view="secondary">
-                Все домены покрыты модулями
-              </Text>
-            ) : (
-              domainWithoutModules.map((domain) => (
-                <span key={domain.id} className={styles.domainPill}>
-                  {domainNameMap[domain.id] ?? domain.name}
-                </span>
-              ))
-            )}
-          </div>
-        </Card>
+                </thead>
+                <tbody>
+                  {systems.map((system) => (
+                    <tr key={system.name}>
+                      <td>{system.name}</td>
+                      <td>{system.total}</td>
+                      {statusOrder.map((status) => (
+                        <td key={status}>
+                          <span className={styles.statusPill} data-status={statusBadgeView[status]}>
+                            {system.statuses[status]}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+          <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+            <Text size="s" weight="semibold" className={styles.cardTitle}>
+              Домены без закреплённых функций
+            </Text>
+            <div className={styles.domainList}>
+              {domainWithoutModules.length === 0 ? (
+                <Text size="s" view="secondary">
+                  Все домены покрыты модулями
+                </Text>
+              ) : (
+                domainWithoutModules.map((domain) => (
+                  <span key={domain.id} className={styles.domainPill}>
+                    {domainNameMap[domain.id] ?? domain.name}
+                  </span>
+                ))
+              )}
+            </div>
+          </Card>
+        </motion.div>
       </section>
 
-      <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
-        <Text size="s" weight="semibold" className={styles.cardTitle}>
-          Дополнительные метрики мониторинга
-        </Text>
-        <div className={styles.metricsList}>
-          <div className={styles.metricsItem}>
-            <span className={styles.metricsLabel}>Средний уровень автоматизации тестов</span>
-            <span className={styles.metricsValue}>{Math.round(averageAutomation)}%</span>
+      <motion.div variants={itemVariants} style={{ display: 'contents' }}>
+        <Card className={styles.card} verticalSpace="l" horizontalSpace="l" shadow={false}>
+          <Text size="s" weight="semibold" className={styles.cardTitle}>
+            Дополнительные метрики мониторинга
+          </Text>
+          <div className={styles.metricsList}>
+            <div className={styles.metricsItem}>
+              <span className={styles.metricsLabel}>Средний уровень автоматизации тестов</span>
+              <span className={styles.metricsValue}>{Math.round(averageAutomation)}%</span>
+            </div>
+            <div className={styles.metricsItem}>
+              <span className={styles.metricsLabel}>Среднее число зависимостей на модуль</span>
+              <span className={styles.metricsValue}>{averageDependencies.toFixed(1)}</span>
+            </div>
+            <div className={styles.metricsItem}>
+              <span className={styles.metricsLabel}>Средняя длительность ответа сервисов</span>
+              <span className={styles.metricsValue}>{Math.round(averageResponseTime)} мс</span>
+            </div>
+            <div className={styles.metricsItem}>
+              <span className={styles.metricsLabel}>Модулей с интеграцией лицензирования</span>
+              <span className={styles.metricsValue}>
+                {licenseRatio.ratio}% ({licenseRatio.withLicense}/{moduleCount})
+              </span>
+            </div>
+            <div className={styles.metricsItem}>
+              <span className={styles.metricsLabel}>Среднее число артефактов на модуль</span>
+              <span className={styles.metricsValue}>{artifactsPerModule}</span>
+            </div>
           </div>
-          <div className={styles.metricsItem}>
-            <span className={styles.metricsLabel}>Среднее число зависимостей на модуль</span>
-            <span className={styles.metricsValue}>{averageDependencies.toFixed(1)}</span>
-          </div>
-          <div className={styles.metricsItem}>
-            <span className={styles.metricsLabel}>Средняя длительность ответа сервисов</span>
-            <span className={styles.metricsValue}>{Math.round(averageResponseTime)} мс</span>
-          </div>
-          <div className={styles.metricsItem}>
-            <span className={styles.metricsLabel}>Модулей с интеграцией лицензирования</span>
-            <span className={styles.metricsValue}>
-              {licenseRatio.ratio}% ({licenseRatio.withLicense}/{moduleCount})
-            </span>
-          </div>
-          <div className={styles.metricsItem}>
-            <span className={styles.metricsLabel}>Среднее число артефактов на модуль</span>
-            <span className={styles.metricsValue}>{artifactsPerModule}</span>
-          </div>
-        </div>
-      </Card>
-    </div>
+        </Card>
+      </motion.div>
+    </motion.div>
   );
 };
 

@@ -8,6 +8,7 @@ import { Tabs } from '@consta/uikit/Tabs';
 import { Text } from '@consta/uikit/Text';
 import { TextField } from '@consta/uikit/TextField';
 import { IconClose } from '@consta/icons/IconClose';
+import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ArtifactNode,
@@ -766,6 +767,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     artifactOptions.find((item) => item.value === selectedArtifactId) ?? artifactOptions[0];
   const expertSelectValue = expertOptions.find((item) => item.value === selectedExpertId) ?? expertOptions[0];
 
+  const tabVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
+    exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.selector}>
@@ -846,119 +853,187 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       <div className={styles.formWrapper}>
-        {activeTab === 'module' && (
-          <ModuleForm
-            moduleKey={selectedModuleId}
-            mode={selectedModuleId === '__new__' ? 'create' : 'edit'}
-            draft={moduleDraft}
-            step={moduleStep}
-            domainItems={leafDomainIds}
-            domainLabelMap={domainLabelMap}
-            moduleItems={modules.map((module) => module.id)}
-            moduleLabelMap={moduleLabelMap}
-            artifactItems={artifacts.map((artifact) => artifact.id)}
-            artifactLabelMap={artifactLabelMap}
-            productNames={productNames}
-            onRegisterProduct={registerProductName}
-            creatorCompanies={creatorCompanies}
-            onRegisterCreatorCompany={registerCreatorCompany}
-            localizations={localizations}
-            onRegisterLocalization={registerLocalization}
-            ridCompanyRegistry={ridCompanyRegistry}
-            onRegisterRidCompany={registerRidCompany}
-            onRegisterRidDivision={registerRidDivision}
-            technologyOptions={technologyOptions}
-            onRegisterTechnology={registerTechnology}
-            libraryRegistry={libraryRegistry}
-            onRegisterLibrary={registerLibrary}
-            onRegisterLibraryVersion={registerLibraryVersion}
-            companyNames={companyNames}
-            onRegisterCompany={registerCompanyName}
-            onChange={setModuleDraft}
-            onStepChange={setModuleStep}
-            onSubmit={handleModuleSubmit}
-            onDelete={selectedModuleId === '__new__' ? undefined : handleModuleDelete}
-          />
-        )}
+        <AnimatePresence mode="wait">
+          {activeTab === 'module' && (
+            <motion.div
+              key="module"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <ModuleForm
+                moduleKey={selectedModuleId}
+                mode={selectedModuleId === '__new__' ? 'create' : 'edit'}
+                draft={moduleDraft}
+                step={moduleStep}
+                domainItems={leafDomainIds}
+                domainLabelMap={domainLabelMap}
+                moduleItems={modules.map((module) => module.id)}
+                moduleLabelMap={moduleLabelMap}
+                artifactItems={artifacts.map((artifact) => artifact.id)}
+                artifactLabelMap={artifactLabelMap}
+                productNames={productNames}
+                onRegisterProduct={registerProductName}
+                creatorCompanies={creatorCompanies}
+                onRegisterCreatorCompany={registerCreatorCompany}
+                localizations={localizations}
+                onRegisterLocalization={registerLocalization}
+                ridCompanyRegistry={ridCompanyRegistry}
+                onRegisterRidCompany={registerRidCompany}
+                onRegisterRidDivision={registerRidDivision}
+                technologyOptions={technologyOptions}
+                onRegisterTechnology={registerTechnology}
+                libraryRegistry={libraryRegistry}
+                onRegisterLibrary={registerLibrary}
+                onRegisterLibraryVersion={registerLibraryVersion}
+                companyNames={companyNames}
+                onRegisterCompany={registerCompanyName}
+                onChange={setModuleDraft}
+                onStepChange={setModuleStep}
+                onSubmit={handleModuleSubmit}
+                onDelete={selectedModuleId === '__new__' ? undefined : handleModuleDelete}
+              />
+            </motion.div>
+          )}
 
-        {activeTab === 'domain' && (
-          <DomainForm
-            mode={selectedDomainId === '__new__' ? 'create' : 'edit'}
-            draft={domainDraft}
-            step={domainStep}
-            parentCatalogIds={catalogDomainIds}
-            parentDomainIds={parentDomainIds}
-            forbiddenParentIds={forbiddenParentIds}
-            parentLabelMap={domainParentLabelMap}
-            moduleItems={modules.map((module) => module.id)}
-            moduleLabelMap={moduleLabelMap}
-            currentDomainId={selectedDomainId === '__new__' ? undefined : selectedDomainId}
-            onChange={setDomainDraft}
-            onStepChange={setDomainStep}
-            onSubmit={handleDomainSubmit}
-            onDelete={selectedDomainId === '__new__' ? undefined : handleDomainDelete}
-          />
-        )}
+          {activeTab === 'domain' && (
+            <motion.div
+              key="domain"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <DomainForm
+                mode={selectedDomainId === '__new__' ? 'create' : 'edit'}
+                draft={domainDraft}
+                step={domainStep}
+                parentCatalogIds={catalogDomainIds}
+                parentDomainIds={parentDomainIds}
+                forbiddenParentIds={forbiddenParentIds}
+                parentLabelMap={domainParentLabelMap}
+                moduleItems={modules.map((module) => module.id)}
+                moduleLabelMap={moduleLabelMap}
+                currentDomainId={selectedDomainId === '__new__' ? undefined : selectedDomainId}
+                onChange={setDomainDraft}
+                onStepChange={setDomainStep}
+                onSubmit={handleDomainSubmit}
+                onDelete={selectedDomainId === '__new__' ? undefined : handleDomainDelete}
+              />
+            </motion.div>
+          )}
 
-        {activeTab === 'artifact' && (
-          <ArtifactForm
-            mode={selectedArtifactId === '__new__' ? 'create' : 'edit'}
-            draft={artifactDraft}
-            step={artifactStep}
-            domainItems={leafDomainIds}
-            domainLabelMap={domainLabelMap}
-            moduleItems={modules.map((module) => module.id)}
-            moduleLabelMap={moduleLabelMap}
-            artifactItems={artifacts.map((artifact) => artifact.id)}
-            artifactLabelMap={artifactLabelMap}
-            dataTypes={artifactDataTypes}
-            onRegisterDataType={registerArtifactDataType}
-            onChange={setArtifactDraft}
-            onStepChange={setArtifactStep}
-            onSubmit={handleArtifactSubmit}
-            onDelete={selectedArtifactId === '__new__' ? undefined : handleArtifactDelete}
-          />
-        )}
+          {activeTab === 'artifact' && (
+            <motion.div
+              key="artifact"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <ArtifactForm
+                mode={selectedArtifactId === '__new__' ? 'create' : 'edit'}
+                draft={artifactDraft}
+                step={artifactStep}
+                domainItems={leafDomainIds}
+                domainLabelMap={domainLabelMap}
+                moduleItems={modules.map((module) => module.id)}
+                moduleLabelMap={moduleLabelMap}
+                artifactItems={artifacts.map((artifact) => artifact.id)}
+                artifactLabelMap={artifactLabelMap}
+                dataTypes={artifactDataTypes}
+                onRegisterDataType={registerArtifactDataType}
+                onChange={setArtifactDraft}
+                onStepChange={setArtifactStep}
+                onSubmit={handleArtifactSubmit}
+                onDelete={selectedArtifactId === '__new__' ? undefined : handleArtifactDelete}
+              />
+            </motion.div>
+          )}
 
-        {activeTab === 'expert' && (
-          <ExpertForm
-            mode={selectedExpertId === '__new__' ? 'create' : 'edit'}
-            draft={expertDraft}
-            expertId={selectedExpertId === '__new__' ? null : selectedExpertId}
-            availableRoles={availableRoles}
-            initiatives={initiatives}
-            tasks={employeeTasks}
-            domainItems={parentDomainIds}
-            domainLabelMap={domainLabelMap}
-            moduleLabelMap={moduleLabelMap}
-            locations={locations}
-            onRegisterLocation={registerLocation}
-            languages={languageOptions}
-            onRegisterLanguage={registerLanguage}
-            onChange={setExpertDraft}
-            onSubmit={handleExpertSubmit}
-            onUpdateTasks={onUpdateEmployeeTasks}
-            onDelete={selectedExpertId === '__new__' ? undefined : handleExpertDelete}
-          />
-        )}
+          {activeTab === 'expert' && (
+            <motion.div
+              key="expert"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <ExpertForm
+                mode={selectedExpertId === '__new__' ? 'create' : 'edit'}
+                draft={expertDraft}
+                expertId={selectedExpertId === '__new__' ? null : selectedExpertId}
+                availableRoles={availableRoles}
+                initiatives={initiatives}
+                tasks={employeeTasks}
+                domainItems={parentDomainIds}
+                domainLabelMap={domainLabelMap}
+                moduleLabelMap={moduleLabelMap}
+                locations={locations}
+                onRegisterLocation={registerLocation}
+                languages={languageOptions}
+                onRegisterLanguage={registerLanguage}
+                onChange={setExpertDraft}
+                onSubmit={handleExpertSubmit}
+                onUpdateTasks={onUpdateEmployeeTasks}
+                onDelete={selectedExpertId === '__new__' ? undefined : handleExpertDelete}
+              />
+            </motion.div>
+          )}
 
-        {activeTab === 'role' && <RoleCompetencyAdmin />}
+          {activeTab === 'role' && (
+            <motion.div
+              key="role"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <RoleCompetencyAdmin />
+            </motion.div>
+          )}
 
-        {activeTab === 'user' && (
-          <UserManagement
-            users={users}
-            selectedUserId={selectedUserId}
-            userDraft={userDraft}
-            onUserDraftChange={setUserDraft}
-            onSubmit={handleUserSubmit}
-            onEdit={handleUserEdit}
-            onDelete={handleUserDelete}
-            currentUser={currentUser}
-          />
-        )}
+          {activeTab === 'user' && (
+            <motion.div
+              key="user"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <UserManagement
+                users={users}
+                selectedUserId={selectedUserId}
+                userDraft={userDraft}
+                onUserDraftChange={setUserDraft}
+                onSubmit={handleUserSubmit}
+                onEdit={handleUserEdit}
+                onDelete={handleUserDelete}
+                currentUser={currentUser}
+              />
+            </motion.div>
+          )}
 
-        {activeTab === 'logs' && <LoginLogsView />}
-
+          {activeTab === 'logs' && (
+            <motion.div
+              key="logs"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+              style={{ width: '100%' }}
+            >
+              <LoginLogsView />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -2580,7 +2655,11 @@ const ModuleForm: React.FC<ModuleFormProps> = ({
             Заполните ключевые сведения и связи модуля перед публикацией в графе.
           </Text>
         </div>
-        {onDelete && <Button size="s" view="clear" label="Удалить модуль" onClick={onDelete} />}
+        {onDelete && (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button size="s" view="clear" label="Удалить модуль" onClick={onDelete} />
+          </motion.div>
+        )}
       </div>
       <Tabs
         value={moduleSections[current]}
@@ -2602,12 +2681,18 @@ const ModuleForm: React.FC<ModuleFormProps> = ({
 
         <div className={styles.stepActions}>
           {current > 0 && (
-            <Button size="s" view="ghost" label="Назад" onClick={() => goToStep(current - 1)} />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button size="s" view="ghost" label="Назад" onClick={() => goToStep(current - 1)} />
+            </motion.div>
           )}
           {current < moduleSections.length - 1 ? (
-            <Button size="s" label="Далее" onClick={() => goToStep(current + 1)} />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button size="s" label="Далее" onClick={() => goToStep(current + 1)} />
+            </motion.div>
           ) : (
-            <Button size="s" view="primary" label="Сохранить модуль" onClick={onSubmit} />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button size="s" view="primary" label="Сохранить модуль" onClick={onSubmit} />
+            </motion.div>
           )}
         </div>
       </div>
@@ -2791,7 +2876,11 @@ const DomainForm: React.FC<DomainFormProps> = ({
             Уточните положение в каталоге и связанные модули доменной области.
           </Text>
         </div>
-        {onDelete && <Button size="s" view="clear" label="Удалить домен" onClick={onDelete} />}
+        {onDelete && (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button size="s" view="clear" label="Удалить домен" onClick={onDelete} />
+          </motion.div>
+        )}
       </div>
       {domainSections.map((section, index) => (
         <Collapse
@@ -2814,12 +2903,18 @@ const DomainForm: React.FC<DomainFormProps> = ({
           </div>
           <div className={styles.stepActions}>
             {index > 0 && (
-              <Button size="s" view="ghost" label="Назад" onClick={() => goToStep(index - 1)} />
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="s" view="ghost" label="Назад" onClick={() => goToStep(index - 1)} />
+              </motion.div>
             )}
             {index < domainSections.length - 1 ? (
-              <Button size="s" label="Далее" onClick={() => goToStep(index + 1)} />
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="s" label="Далее" onClick={() => goToStep(index + 1)} />
+              </motion.div>
             ) : (
-              <Button size="s" view="primary" label="Сохранить домен" onClick={onSubmit} />
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="s" view="primary" label="Сохранить домен" onClick={onSubmit} />
+              </motion.div>
             )}
           </div>
         </Collapse>

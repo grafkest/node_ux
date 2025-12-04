@@ -41,12 +41,8 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   pointer-events: auto;
   max-width: 60%;
   transition: opacity 0.2s ease;
@@ -72,13 +68,9 @@
   display: flex;
   gap: 8px;
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  pointer-events: auto;
   padding: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   animation: fadeIn 0.5s ease-out 0.1s forwards;
   opacity: 0;
   /* Start hidden for animation */

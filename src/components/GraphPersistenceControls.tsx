@@ -6,6 +6,7 @@ import { Button } from '@consta/uikit/Button';
 import { CheckboxGroup } from '@consta/uikit/CheckboxGroup';
 import { Select } from '@consta/uikit/Select';
 import { Text } from '@consta/uikit/Text';
+import { motion } from 'framer-motion';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ArtifactNode, DomainNode, ExpertProfile, Initiative, ModuleNode } from '../data';
 import { normalizeLayoutSnapshot } from '../services/graphStorage';
@@ -366,30 +367,36 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
           {activeGraphId && (
             <div className={styles.graphActions}>
               {onGraphCreate && (
-                <Button
-                  size="s"
-                  view="clear"
-                  iconLeft={IconAdd}
-                  onlyIcon
-                  onClick={onGraphCreate}
-                  title="Создать новый граф"
-                />
+                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                  <Button
+                    size="s"
+                    view="clear"
+                    iconLeft={IconAdd}
+                    onlyIcon
+                    onClick={onGraphCreate}
+                    title="Создать новый граф"
+                  />
+                </motion.div>
               )}
               {onGraphDelete && (
-                <Button
-                  size="s"
-                  view="clear"
-                  status="alert"
-                  iconLeft={IconTrash}
-                  onlyIcon
-                  onClick={onGraphDelete}
-                  title="Удалить текущий граф"
-                />
+                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                  <Button
+                    size="s"
+                    view="clear"
+                    status="alert"
+                    iconLeft={IconTrash}
+                    onlyIcon
+                    onClick={onGraphDelete}
+                    title="Удалить текущий граф"
+                  />
+                </motion.div>
               )}
             </div>
           )}
           {!activeGraphId && onGraphCreate && (
-            <Button size="s" view="secondary" label="Создать граф" onClick={onGraphCreate} />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button size="s" view="secondary" label="Создать граф" onClick={onGraphCreate} />
+            </motion.div>
           )}
         </div>
 
@@ -414,15 +421,17 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
             </Text>
           )}
           {activeGraphId && isSyncAvailable && onRetryLoad && (
-            <Button
-              size="xs"
-              view="clear"
-              iconLeft={IconRestart}
-              onlyIcon
-              loading={isReloading}
-              onClick={onRetryLoad}
-              title="Перезагрузить данные"
-            />
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Button
+                size="xs"
+                view="clear"
+                iconLeft={IconRestart}
+                onlyIcon
+                loading={isReloading}
+                onClick={onRetryLoad}
+                title="Перезагрузить данные"
+              />
+            </motion.div>
           )}
         </div>
       </div>
@@ -462,28 +471,34 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
           </Text>
         </div>
         <div className={styles.actions}>
-          <Button
-            size="s"
-            view="secondary"
-            label="Экспорт в JSON"
-            onClick={handleExport}
-            disabled={isFileTransferSelectionEmpty}
-          />
-          <Button
-            size="s"
-            view="primary"
-            label="Импорт из файла"
-            onClick={handleTriggerImport}
-            disabled={isFileTransferSelectionEmpty}
-          />
-          {onForceSave && (
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               size="s"
-              view="ghost"
-              label="Сохранить в хранилище"
-              onClick={onForceSave}
-              disabled={!isSyncAvailable}
+              view="secondary"
+              label="Экспорт в JSON"
+              onClick={handleExport}
+              disabled={isFileTransferSelectionEmpty}
             />
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              size="s"
+              view="primary"
+              label="Импорт из файла"
+              onClick={handleTriggerImport}
+              disabled={isFileTransferSelectionEmpty}
+            />
+          </motion.div>
+          {onForceSave && (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="s"
+                view="ghost"
+                label="Сохранить в хранилище"
+                onClick={onForceSave}
+                disabled={!isSyncAvailable}
+              />
+            </motion.div>
           )}
           <input
             ref={fileInputRef}
@@ -553,16 +568,18 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
                   : 'Выберите граф-источник, чтобы включить параметры копирования.'}
               </Text>
             </div>
-            <Button
-              size="s"
-              view="primary"
-              label="Скопировать данные"
-              onClick={() => {
-                void handleImportFromGraphClick();
-              }}
-              disabled={!canImportFromGraph || isGraphImporting}
-              loading={isGraphImporting}
-            />
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="s"
+                view="primary"
+                label="Скопировать данные"
+                onClick={() => {
+                  void handleImportFromGraphClick();
+                }}
+                disabled={!canImportFromGraph || isGraphImporting}
+                loading={isGraphImporting}
+              />
+            </motion.div>
           </div>
           {!graphOptions.length && !isGraphListLoading && (
             <Text size="xs" view="secondary">
@@ -574,9 +591,8 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
       {status && (
         <Text
           size="xs"
-          className={`${styles.status} ${
-            status.type === 'success' ? styles.statusSuccess : styles.statusError
-          }`}
+          className={`${styles.status} ${status.type === 'success' ? styles.statusSuccess : styles.statusError
+            }`}
         >
           {status.message}
         </Text>
@@ -584,13 +600,12 @@ const GraphPersistenceControls: React.FC<GraphPersistenceControlsProps> = ({
       {syncStatus && (
         <Text
           size="xs"
-          className={`${styles.status} ${
-            syncStatus.state === 'error'
-              ? styles.statusError
-              : syncStatus.state === 'saving'
-                ? styles.statusInProgress
-                : styles.statusSecondary
-          }`}
+          className={`${styles.status} ${syncStatus.state === 'error'
+            ? styles.statusError
+            : syncStatus.state === 'saving'
+              ? styles.statusInProgress
+              : styles.statusSecondary
+            }`}
         >
           {syncStatus.message ??
             (syncStatus.state === 'saving'
@@ -717,12 +732,12 @@ function normalizeImportedSnapshot(snapshot: GraphSnapshotLike): GraphSnapshotPa
   const scopes = snapshot.scopesIncluded ?? [];
   const validScopes = Array.isArray(scopes)
     ? scopes.filter((scope): scope is GraphDataScope =>
-        scope === 'domains' ||
-        scope === 'modules' ||
-        scope === 'artifacts' ||
-        scope === 'experts' ||
-        scope === 'initiatives'
-      )
+      scope === 'domains' ||
+      scope === 'modules' ||
+      scope === 'artifacts' ||
+      scope === 'experts' ||
+      scope === 'initiatives'
+    )
     : [];
 
   return {

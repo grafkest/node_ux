@@ -9,7 +9,7 @@
   --color-expert: var(--color-bg-success);
   --color-module: var(--color-bg-normal);
   --color-artifact: var(--color-bg-success);
-  
+
   /* Chart semantic tokens */
   --color-chart-low: var(--color-bg-success);
   --color-chart-mid: var(--color-bg-warning);
@@ -36,36 +36,41 @@ body {
 .Theme.Theme_preset_cyberpunk {
   --font-primary: 'Rajdhani', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
+
   /* Base Consta Color Overrides for Cyberpunk */
   --color-bg-default: #090910;
   --color-bg-secondary: #131320;
   --color-bg-stripe: #0D0D16;
   --color-bg-border: rgba(0, 240, 255, 0.2);
-  
+
   --color-typo-primary: #E0FFFF;
   --color-typo-secondary: #94A3B8;
   --color-typo-ghost: rgba(224, 255, 255, 0.4);
-  
+
   --color-bg-brand: #00F0FF;
   --color-bg-success: #39FF14;
   --color-bg-warning: #FCEE0A;
   --color-bg-alert: #FF0055;
   --color-bg-info: #BC13FE;
   --color-bg-link: #00F0FF;
-  
+
   --color-bg-tone: #131320;
   --color-bg-soft: #131320;
   --color-bg-system: #131320;
   --color-bg-normal: #00F0FF;
 
   /* Domain Graph Semantic Tokens */
-  --color-domain: #FCEE0A;  /* Laser Lemon */
-  --color-initiative: #FF0055; /* Radical Red */
-  --color-expert: #39FF14; /* Neon Green */
-  --color-module: #00F0FF; /* Electric Cyan */
-  --color-artifact: #BC13FE; /* Electric Violet */
-  
+  --color-domain: #FCEE0A;
+  /* Laser Lemon */
+  --color-initiative: #FF0055;
+  /* Radical Red */
+  --color-expert: #39FF14;
+  /* Neon Green */
+  --color-module: #00F0FF;
+  /* Electric Cyan */
+  --color-artifact: #BC13FE;
+  /* Electric Violet */
+
   --color-chart-low: #39FF14;
   --color-chart-mid: #FCEE0A;
   --color-chart-high: #FF0055;
@@ -85,9 +90,17 @@ body {
 
 /* Neon Glow Animation */
 @keyframes neon-pulse {
-  0% { box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand); }
-  50% { box-shadow: 0 0 10px var(--color-bg-brand), 0 0 20px var(--color-bg-brand); }
-  100% { box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand); }
+  0% {
+    box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand);
+  }
+
+  50% {
+    box-shadow: 0 0 10px var(--color-bg-brand), 0 0 20px var(--color-bg-brand);
+  }
+
+  100% {
+    box-shadow: 0 0 5px var(--color-bg-brand), 0 0 10px var(--color-bg-brand);
+  }
 }
 
 /* Apply glow to primary buttons in cyberpunk theme */
@@ -132,4 +145,26 @@ body {
   background-size: 100% 2px, 3px 100%;
   pointer-events: none;
   opacity: 0.4;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+}
+
+.Theme_preset_dark .glass-panel,
+.Theme_preset_gpnDark .glass-panel {
+  background: rgba(30, 30, 35, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.Theme_preset_cyberpunk .glass-panel {
+  background: rgba(19, 19, 32, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
 }
