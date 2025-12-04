@@ -183,5 +183,146 @@
 - **Protégé / Grafo / WebVOWL** — инструменты моделирования онтологий.
 - **Elasticsearch** — полнотекстовый поиск поверх графовой базы.
 
+## Развёртывание на продакшн-сервере
+
+### Подготовка к развёртыванию
+
+1. **Соберите production-версию приложения:**
+
+   ```bash
+   npm run build
+   ```
+
+   Готовые статические файлы появятся в каталоге `dist/`.
+
+2. **Настройте переменные окружения на сервере:**
+
+   - `PORT` — порт для backend-сервера (по умолчанию 3003)
+   - `VITE_API_PROXY_TARGET` — URL backend API (используется только в development/preview режиме Vite)
+
+### Вариант 1: Развёртывание с Nginx (рекомендуется)
+
+1. **Скопируйте файлы на сервер:**
+   - Каталог `dist/` с собранным фронтендом
+   - Каталог `server/` с backend-кодом
+   - Файлы `package.json` и `package-lock.json`
+
+2. **Установите зависимости на сервере:**
+
+   ```bash
+   npm install --production
+   ```
+
+3. **Запустите backend-сервер:**
+
+   ```bash
+   # Установите порт через переменную окружения
+   PORT=3003 npm run server
+   
+   # Или используйте PM2 для автозапуска
+   pm2 start "npm run server" --name "nedra-expert-api"
+   ```
+
+4. **Настройте Nginx как reverse proxy:**
+
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       # Статические файлы фронтенда
+       location / {
+           root /path/to/dist;
+           try_files $uri $uri/ /index.html;
+       }
+       
+       # Проксирование API-запросов к backend
+       location /api/ {
+           proxy_pass http://localhost:3003;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       }
+   }
+   ```
+
+5. **Перезапустите Nginx:**
+
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+### Вариант 2: Развёртывание только с Node.js
+
+Если Nginx недоступен, можно использовать встроенный статический сервер Express:
+
+1. **Добавьте раздачу статики в `server/index.ts`** (после строки `app.use(express.json({ limit: '5mb' }));`):
+
+   ```typescript
+   import path from 'node:path';
+   
+   // Serve static files from dist/
+   app.use(express.static(path.join(__dirname, '../dist')));
+   
+   // Handle client-side routing
+   app.get('*', (req, res) => {
+     if (!req.path.startsWith('/api/')) {
+       res.sendFile(path.join(__dirname, '../dist/index.html'));
+     }
+   });
+   ```
+
+2. **Запустите сервер:**
+
+   ```bash
+   PORT=80 npm run server
+   ```
+
+### Автозапуск при перезагрузке сервера
+
+Используйте PM2 или systemd для автоматического запуска:
+
+**PM2:**
+```bash
+pm2 start "npm run server" --name "nedra-expert-api"
+pm2 save
+pm2 startup
+```
+
+**Systemd** (`/etc/systemd/system/nedra-expert.service`):
+```ini
+[Unit]
+Description=Nedra Expert Node API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/app
+Environment=PORT=3003
+ExecStart=/usr/bin/npm run server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Затем:
+```bash
+sudo systemctl enable nedra-expert
+sudo systemctl start nedra-expert
+```
+
+### Важные замечания
+
+- **База данных:** Файл `data/graph.db` создаётся автоматически при первом запуске. Убедитесь, что у процесса есть права на запись в каталог `data/`.
+- **HTTPS:** Для production-окружения настоятельно рекомендуется использовать SSL-сертификат (например, через Let's Encrypt с certbot).
+- **Безопасность:** В текущей версии аутентификация упрощённая. Для продакшна рекомендуется добавить JWT-токены и более надёжную систему управления сессиями.
+
 ## Заключение
 Комбинация онтологического моделирования, DDD и современных инструментов визуализации позволяет построить приложение, которое снижает дублирование, ускоряет поиск решений и развивает культуру обмена знаниями в организации.
