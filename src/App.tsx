@@ -1392,18 +1392,18 @@ function App() {
     activeGraphId
   ]);
 
+
   const matchesModuleFilters = useCallback(
     (module: ModuleNode) => {
       const matchesDomain =
-        selectedDomains.size > 0 && module.domains.some((domain) => selectedDomains.has(domain));
+        selectedDomains.size === 0 ||
+        module.domains.some((domainId) => selectedDomains.has(domainId));
       const searchableText = moduleSearchIndex[module.id] ?? '';
       const matchesSearch =
         normalizedSearch.length === 0 || searchableText.includes(normalizedSearch);
       const matchesStatus = statusFilters.has(module.status);
       const matchesProduct =
-        productFilter.length === 0
-          ? false
-          : productFilter.includes(module.productName);
+        productFilter.length === 0 || productFilter.includes(module.productName);
       const matchesCompany =
         !companyFilter ||
         module.userStats.companies.some((company) => company.name === companyFilter);
@@ -1420,6 +1420,7 @@ function App() {
       moduleSearchIndex
     ]
   );
+
 
   const filteredModules = useMemo(
     () => moduleData.filter((module) => matchesModuleFilters(module)),
@@ -1781,10 +1782,12 @@ function App() {
     return ids;
   }, [graphModules, graphInitiatives, highlightedDomainId, domainAncestors, selectedDomains]);
 
-  const graphDomains = useMemo(
-    () => filterDomainTreeByIds(domainData, relevantDomainIds),
-    [domainData, relevantDomainIds]
-  );
+  const graphDomains = useMemo(() => {
+    // Don't apply search filter to domains - they should be shown for all visible modules
+    // The modules are already filtered by search, so domains are shown based on module visibility
+    const filteredDomains = filterDomainTreeByIds(domainData, relevantDomainIds);
+    return filteredDomains;
+  }, [domainData, relevantDomainIds]);
 
   const graphArtifacts = useMemo(() => {
     const moduleIds = new Set(graphModules.map((module) => module.id));
@@ -1808,6 +1811,9 @@ function App() {
       }
       return artifact.consumerIds.some((consumerId) => moduleIds.has(consumerId));
     });
+
+    // Don't apply search filter to artifacts - they should be shown for all visible modules
+    // The modules are already filtered by search, so artifacts are shown based on module connections
 
     if (selectedNode?.type === 'artifact' && !scopedArtifacts.some((artifact) => artifact.id === selectedNode.id)) {
       const fallback = artifactData.find((artifact) => artifact.id === selectedNode.id);
