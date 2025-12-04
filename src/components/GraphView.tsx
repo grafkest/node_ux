@@ -603,11 +603,11 @@ const GraphView: React.FC<GraphViewProps> = ({
 
     const chargeForce = graph.d3Force('charge') as
       | ((alpha: number) => void) &
-          {
-            strength?: (value?: number | ((node: ForceNode) => number)) => typeof chargeForce;
-            distanceMax?: (value?: number) => typeof chargeForce;
-            distanceMin?: (value?: number) => typeof chargeForce;
-          }
+      {
+        strength?: (value?: number | ((node: ForceNode) => number)) => typeof chargeForce;
+        distanceMax?: (value?: number) => typeof chargeForce;
+        distanceMin?: (value?: number) => typeof chargeForce;
+      }
       | undefined;
 
     if (chargeForce?.strength && chargeForce.distanceMax && chargeForce.distanceMin) {
@@ -621,9 +621,9 @@ const GraphView: React.FC<GraphViewProps> = ({
 
     const linkForce = graph.d3Force('link') as
       | ((alpha: number) => void) &
-          {
-            distance?: (value?: number | ((link: ForceLink) => number)) => typeof linkForce;
-          }
+      {
+        distance?: (value?: number | ((link: ForceLink) => number)) => typeof linkForce;
+      }
       | undefined;
 
     if (linkForce?.distance) {
@@ -1013,7 +1013,7 @@ const GraphView: React.FC<GraphViewProps> = ({
   return (
     <div ref={containerRef} className={styles.container}>
       <div className={styles.header}>
-        <div className={styles.legend}>
+        <div className={`${styles.legend} glass-panel`}>
           <Badge label="🚀 Модуль • prod" size="s" view="filled" status="warning" />
           <Badge label="🔧 Модуль • in-dev" size="s" view="filled" status="normal" />
           <Badge label="🛑 Модуль • deprecated" size="s" view="filled" status="alert" />
@@ -1022,7 +1022,7 @@ const GraphView: React.FC<GraphViewProps> = ({
           <Badge label="🎯 Инициатива" size="s" view="filled" status="warning" />
         </div>
         {highlightedNode ? (
-          <div className={styles.viewControls}>
+          <div className={`${styles.viewControls} glass-panel`}>
             <button
               type="button"
               className={styles.controlButton}
@@ -1237,7 +1237,7 @@ function drawNode(
       const moduleRadius = 12; // Slightly larger
       const fill = resolveModuleColor(node.status, palette);
       renderCircle(ctx, x, y, moduleRadius, fill, withAlpha(fill, 0.8));
-      
+
       // Active ring for highlighted nodes
       if (isHighlighted) {
         ctx.beginPath();
@@ -1246,14 +1246,14 @@ function drawNode(
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      
+
       iconColor = '#FFFFFF';
       break;
     }
     case 'domain': {
       const domainRadius = 10;
       renderDiamond(ctx, x, y, domainRadius, palette.domain, withAlpha(palette.domain, 0.8));
-      
+
       if (isHighlighted) {
         ctx.beginPath();
         ctx.moveTo(x, y - (domainRadius + 4));
@@ -1265,13 +1265,13 @@ function drawNode(
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      
+
       break;
     }
     case 'artifact': {
       const artifactRadius = 9;
       renderTriangle(ctx, x, y, artifactRadius, palette.artifact, withAlpha(palette.artifact, 0.8));
-      
+
       if (isHighlighted) {
         // Simple circle glow for triangle for simplicity
         ctx.beginPath();
@@ -1280,7 +1280,7 @@ function drawNode(
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      
+
       break;
     }
     case 'initiative': {
@@ -1296,7 +1296,7 @@ function drawNode(
         palette.initiative,
         withAlpha(palette.initiative, 0.8)
       );
-      
+
       if (isHighlighted) {
         renderRoundedRect(
           ctx,
@@ -1309,7 +1309,7 @@ function drawNode(
           withAlpha(palette.initiative, 0.4)
         );
       }
-      
+
       iconColor = '#FFFFFF';
       break;
     }
@@ -1332,7 +1332,7 @@ function drawNode(
   const textAlpha = isHighlighted ? 1 : Math.max(effectiveAlpha, 0.6); // Increased readability
   ctx.globalAlpha = textAlpha;
   ctx.font = `500 ${labelFontSize}px Inter, sans-serif`; // Use Inter font
-  
+
   // Text shadow for better contrast against background
   ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
   ctx.shadowBlur = 2;
@@ -1340,7 +1340,7 @@ function drawNode(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(label, x, y + labelOffset);
-  
+
   ctx.shadowColor = 'transparent';
   ctx.restore();
 }

@@ -1,4 +1,9 @@
+import { motion } from 'framer-motion';
 import { Theme, presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
+
+// ... (lines 2-3500 remain unchanged, but I can't skip them in replace_file_content unless I target specific blocks)
+// I will target the import line and the variants definition separately.
+
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
@@ -3499,6 +3504,23 @@ function App() {
     return <Login />;
   }
 
+  const pageVariants = {
+    visible: {
+      opacity: 1,
+      y: 0,
+      position: 'relative' as const,
+      pointerEvents: 'auto' as const,
+      transition: { duration: 0.3 }
+    },
+    hidden: {
+      opacity: 0,
+      y: 10,
+      position: 'absolute' as const,
+      pointerEvents: 'none' as const,
+      transition: { duration: 0.2 }
+    }
+  };
+
   return (
     <Theme
       key={themeMode}
@@ -3587,11 +3609,11 @@ function App() {
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <main
+            <motion.main
               className={styles.main}
-              hidden={!isGraphActive}
-              aria-hidden={!isGraphActive}
-              style={{ display: isGraphActive ? undefined : 'none' }}
+              initial="hidden"
+              animate={isGraphActive ? 'visible' : 'hidden'}
+              variants={pageVariants}
             >
               <aside
                 ref={sidebarRef}
@@ -3706,13 +3728,13 @@ function App() {
                   expertProfiles={expertProfiles}
                 />
               </aside>
-            </main>
+            </motion.main>
             {(statsActivated || isStatsActive) && (
-              <main
+              <motion.main
                 className={styles.statsMain}
-                hidden={!isStatsActive}
-                aria-hidden={!isStatsActive}
-                style={{ display: isStatsActive ? undefined : 'none' }}
+                initial="hidden"
+                animate={isStatsActive ? 'visible' : 'hidden'}
+                variants={pageVariants}
               >
                 <Suspense fallback={<Loader size="m" />}>
                   <StatsDashboard
@@ -3722,13 +3744,13 @@ function App() {
                     reuseHistory={reuseIndexHistory}
                   />
                 </Suspense>
-              </main>
+              </motion.main>
             )}
-            <main
+            <motion.main
               className={styles.expertMain}
-              hidden={!isExpertsActive}
-              aria-hidden={!isExpertsActive}
-              style={{ display: isExpertsActive ? undefined : 'none' }}
+              initial="hidden"
+              animate={isExpertsActive ? 'visible' : 'hidden'}
+              variants={pageVariants}
             >
               <ExpertExplorer
                 experts={expertProfiles}
@@ -3740,12 +3762,12 @@ function App() {
                 onUpdateExpertSkills={handleUpdateExpertSkills}
                 onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
               />
-            </main>
-            <main
+            </motion.main>
+            <motion.main
               className={styles.initiativesMain}
-              hidden={!isInitiativesActive}
-              aria-hidden={!isInitiativesActive}
-              style={{ display: isInitiativesActive ? undefined : 'none' }}
+              initial="hidden"
+              animate={isInitiativesActive ? 'visible' : 'hidden'}
+              variants={pageVariants}
             >
               <InitiativePlanner
                 initiatives={initiativeData}
@@ -3762,12 +3784,12 @@ function App() {
                 onCreateInitiative={handlePlannerCreateInitiative}
                 onUpdateInitiative={handlePlannerUpdateInitiative}
               />
-            </main>
-            <main
+            </motion.main>
+            <motion.main
               className={styles.employeeTasksMain}
-              hidden={!isEmployeeTasksActive}
-              aria-hidden={!isEmployeeTasksActive}
-              style={{ display: isEmployeeTasksActive ? undefined : 'none' }}
+              initial="hidden"
+              animate={isEmployeeTasksActive ? 'visible' : 'hidden'}
+              variants={pageVariants}
             >
               <EmployeeWorkloadTrack
                 experts={expertProfiles}
@@ -3775,12 +3797,12 @@ function App() {
                 tasks={employeeTasks}
                 onTasksChange={setEmployeeTasks}
               />
-            </main>
-            <main
+            </motion.main>
+            <motion.main
               className={styles.creationMain}
-              hidden={!isAdminActive}
-              aria-hidden={!isAdminActive}
-              style={{ display: isAdminActive ? undefined : 'none' }}
+              initial="hidden"
+              animate={isAdminActive ? 'visible' : 'hidden'}
+              variants={pageVariants}
             >
               <GraphPersistenceControls
                 modules={moduleData}
@@ -3830,7 +3852,7 @@ function App() {
                 onDeleteUser={handleDeleteUser}
                 currentUser={user}
               />
-            </main>
+            </motion.main>
           </>
         )}
       </LayoutShell>

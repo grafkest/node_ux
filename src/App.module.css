@@ -59,7 +59,7 @@
 
 .header {
   /* Should be hidden or removed if using LayoutShell, but kept for compatibility */
-  display: none; 
+  display: none;
 }
 
 .graphSelector {
@@ -88,13 +88,14 @@
 
 .graphCreatePanel {
   /* Moved to Modal, this can be removed or repurposed */
-  display: none; 
+  display: none;
 }
 
 
 .main {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 360px; /* Adjusted column widths */
+  grid-template-columns: 300px minmax(0, 1fr) 360px;
+  /* Adjusted column widths */
   gap: 24px;
   padding: 24px;
   box-sizing: border-box;
@@ -102,8 +103,10 @@
   width: 100%;
   max-width: 100%;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
-  background-color: var(--color-bg-stripe); /* Light gray background for content area */
+  background-color: var(--color-bg-stripe);
+  /* Light gray background for content area */
 }
 
 .sidebar {
@@ -115,9 +118,11 @@
   overflow: hidden;
   align-self: start;
   background: var(--color-bg-default);
-  border-radius: 12px; /* Card look */
+  border-radius: 12px;
+  /* Card look */
   box-shadow: var(--shadow-layer);
-  padding: 16px; /* Padding inside the card */
+  padding: 16px;
+  /* Padding inside the card */
 }
 
 .sidebarScrollArea {
@@ -180,7 +185,8 @@
   background: var(--color-bg-default);
   border-radius: 12px;
   box-shadow: var(--shadow-layer);
-  overflow: hidden; /* Hide scrollbar, let content scroll */
+  overflow: hidden;
+  /* Hide scrollbar, let content scroll */
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -245,7 +251,8 @@
   .sidebar {
     order: 1;
     flex-direction: column;
-    max-height: 500px; /* Limit height on mobile */
+    max-height: 500px;
+    /* Limit height on mobile */
   }
 
   .graphSection {
