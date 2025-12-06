@@ -247,7 +247,7 @@ export function GraphProvider({ children }: PropsWithChildren) {
   >(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
-  const [moduleData, setModuleData] = useState<ModuleNode[]>(() =>
+  const [moduleData, setModuleDataState] = useState<ModuleNode[]>(() =>
     recalculateReuseScores(initialModules)
   );
   const [artifactData, setArtifactData] = useState<ArtifactNode[]>(initialArtifacts);
@@ -265,6 +265,16 @@ export function GraphProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     graphsRef.current = graphs;
   }, [graphs]);
+
+  const setModuleData = useCallback(
+    (next: ModuleNode[] | ((prev: ModuleNode[]) => ModuleNode[])) => {
+      setModuleDataState((prev) => {
+        const updated = typeof next === 'function' ? (next as (prev: ModuleNode[]) => ModuleNode[])(prev) : next;
+        return recalculateReuseScores(updated);
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     activeGraphIdRef.current = activeGraphId;

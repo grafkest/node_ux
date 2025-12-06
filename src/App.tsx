@@ -207,15 +207,6 @@ function AppContent() {
     loadGraphsList,
     persistGraphSnapshot
   } = useGraph();
-  const setModuleDataState = useCallback(
-    (next: ModuleNode[] | ((prev: ModuleNode[]) => ModuleNode[])) => {
-      setModuleData((prev) => {
-        const updated = typeof next === 'function' ? (next as (prev: ModuleNode[]) => ModuleNode[])(prev) : next;
-        return recalculateReuseScores(updated);
-      });
-    },
-    [setModuleData]
-  );
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
@@ -284,22 +275,15 @@ function AppContent() {
   }, []);
 
 
-  const [graphNameDraft, setGraphNameDraft] = useState('');
-  const [graphSourceIdDraft, setGraphSourceIdDraft] = useState<string | null>(null);
-  const [graphCopyOptions, setGraphCopyOptions] = useState<Set<GraphDataScope>>(
-    buildDefaultGraphCopyOptions
+  const handleGraphSourceIdChange = useCallback(
+    (value: string | null) => {
+      setGraphSourceIdDraft(value);
+      if (value === null) {
+        setGraphCopyOptions(buildDefaultGraphCopyOptions());
+      }
+    },
+    [setGraphCopyOptions, setGraphSourceIdDraft]
   );
-  const [isGraphActionInProgress, setIsGraphActionInProgress] = useState(false);
-  const [graphActionStatus, setGraphActionStatus] = useState<
-    { type: 'success' | 'error'; message: string } | null
-  >(null);
-  const handleGraphSourceIdChange = useCallback((value: string | null) => {
-    setGraphSourceIdDraft(value);
-
-    if (value === null) {
-      setGraphCopyOptions(buildDefaultGraphCopyOptions());
-    }
-  }, []);
   const handleUpdateExpertSkills = useCallback((expertId: string, skills: ExpertSkill[]) => {
     setExpertProfiles((prev) =>
       prev.map((expert) => (expert.id === expertId ? { ...expert, skills } : expert))
@@ -513,7 +497,7 @@ function AppContent() {
     nextInitiatives.forEach((initiative) => activeNodeIds.add(initiative.id));
 
     setDomainData(nextDomains);
-    setModuleDataState(recalculateReuseScores(nextModules));
+    setModuleData(nextModules);
     setArtifactData(nextArtifacts);
     setInitiativeData(nextInitiatives);
     setExpertProfiles(nextExperts);
@@ -1866,7 +1850,7 @@ function AppContent() {
       markGraphDirty();
       const recalculatedModules = recalculateReuseScores([...moduleData, newModule]);
       const createdModule = recalculatedModules.find((module) => module.id === moduleId);
-      setModuleDataState(recalculatedModules);
+      setModuleData(recalculatedModules);
 
       setArtifactData((prev) =>
         prev.map((artifact) => {
@@ -1959,7 +1943,7 @@ function AppContent() {
       const recalculatedModule = recalculatedModules.find((module) => module.id === moduleId);
       const producedSet = new Set(recalculatedModule?.produces ?? []);
 
-      setModuleDataState(recalculatedModules);
+      setModuleData(recalculatedModules);
 
       setArtifactData((prev) =>
         prev.map((artifact) => {
@@ -2037,7 +2021,7 @@ function AppContent() {
           )
         }));
 
-      setModuleDataState(recalculateReuseScores(nextModulesBase));
+      setModuleData(nextModulesBase);
       setInitiativeData((prev) =>
         prev.map((initiative) => ({
           ...initiative,
@@ -2112,13 +2096,11 @@ function AppContent() {
       const moduleIds = !draft.isCatalogRoot && targetParentId ? draft.moduleIds : [];
       if (moduleIds.length > 0) {
         const moduleSet = new Set(moduleIds);
-        setModuleDataState((prev) =>
-          recalculateReuseScores(
-            prev.map((module) =>
-              moduleSet.has(module.id) && !module.domains.includes(domainId)
-                ? { ...module, domains: [...module.domains, domainId] }
-                : module
-            )
+        setModuleData((prev) =>
+          prev.map((module) =>
+            moduleSet.has(module.id) && !module.domains.includes(domainId)
+              ? { ...module, domains: [...module.domains, domainId] }
+              : module
           )
         );
       }
@@ -2223,18 +2205,16 @@ function AppContent() {
       const moduleSet = !draft.isCatalogRoot && targetParentId
         ? new Set(draft.moduleIds)
         : new Set<string>();
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            const hasDomain = module.domains.includes(domainId);
-            if (moduleSet.has(module.id)) {
-              return hasDomain ? module : { ...module, domains: [...module.domains, domainId] };
-            }
-            return hasDomain
-              ? { ...module, domains: module.domains.filter((id) => id !== domainId) }
-              : module;
-          })
-        )
+      setModuleData((prev) =>
+        prev.map((module) => {
+          const hasDomain = module.domains.includes(domainId);
+          if (moduleSet.has(module.id)) {
+            return hasDomain ? module : { ...module, domains: [...module.domains, domainId] };
+          }
+          return hasDomain
+            ? { ...module, domains: module.domains.filter((id) => id !== domainId) }
+            : module;
+        })
       );
 
       setSelectedNode((prev) =>
@@ -2263,13 +2243,11 @@ function AppContent() {
 
       markGraphDirty();
       setDomainData(nextTree);
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => ({
-            ...module,
-            domains: module.domains.filter((id) => !removedIds.has(id))
-          }))
-        )
+      setModuleData((prev) =>
+        prev.map((module) => ({
+          ...module,
+          domains: module.domains.filter((id) => !removedIds.has(id))
+        }))
       );
       setArtifactData((prev) => prev.filter((artifact) => !removedIds.has(artifact.domainId)));
       setInitiativeData((prev) =>
@@ -2333,25 +2311,24 @@ function AppContent() {
       markGraphDirty();
       setArtifactData([...artifactData, newArtifact]);
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            let next = module;
+      setModuleData((prev) =>
+        prev.map((module) => {
+          let next = module;
 
-            if (producerId && module.id === producerId) {
-              const produces = module.produces.includes(artifactId)
-                ? module.produces
-                : [...module.produces, artifactId];
-              const existingOutputIndex = module.dataOut.findIndex(
-                (output) => output.artifactId === artifactId || output.label === normalizedName
-              );
-              const dataOut = existingOutputIndex >= 0
-                ? module.dataOut.map((output, index) =>
+          if (producerId && module.id === producerId) {
+            const produces = module.produces.includes(artifactId)
+              ? module.produces
+              : [...module.produces, artifactId];
+            const existingOutputIndex = module.dataOut.findIndex(
+              (output) => output.artifactId === artifactId || output.label === normalizedName
+            );
+            const dataOut = existingOutputIndex >= 0
+              ? module.dataOut.map((output, index) =>
                   index === existingOutputIndex
                     ? { ...output, label: normalizedName, artifactId }
                     : output
                 )
-                : [
+              : [
                   ...module.dataOut,
                   {
                     id: `output-${module.dataOut.length + 1}-${artifactId}`,
@@ -2359,26 +2336,25 @@ function AppContent() {
                     artifactId
                   }
                 ];
-              next = { ...next, produces, dataOut };
-            }
+            next = { ...next, produces, dataOut };
+          }
 
-            if (consumers.includes(module.id) && !module.dataIn.some((input) => input.sourceId === artifactId)) {
-              next = {
-                ...next,
-                dataIn: [
-                  ...module.dataIn,
-                  {
-                    id: `input-${module.dataIn.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    sourceId: artifactId
-                  }
-                ]
-              };
-            }
+          if (consumers.includes(module.id) && !module.dataIn.some((input) => input.sourceId === artifactId)) {
+            next = {
+              ...next,
+              dataIn: [
+                ...module.dataIn,
+                {
+                  id: `input-${module.dataIn.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  sourceId: artifactId
+                }
+              ]
+            };
+          }
 
-            return next;
-          })
-        )
+          return next;
+        })
       );
 
       setSelectedNode({ ...newArtifact, type: 'artifact', reuseScore: 0 });
@@ -2436,81 +2412,73 @@ function AppContent() {
         prev.map((artifact) => (artifact.id === artifactId ? updatedArtifact : artifact))
       );
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            let next = module;
-            const isProducer = producerId && module.id === producerId;
-            const wasProducer = existing.producedBy && module.id === existing.producedBy;
-            let produces = module.produces;
-            let dataOut = module.dataOut;
+      setModuleData((prev) =>
+        prev.map((module) => {
+          let next = module;
+          const isProducer = producerId && module.id === producerId;
+          const wasProducer = existing.producedBy && module.id === existing.producedBy;
+          let produces = module.produces;
+          let dataOut = module.dataOut;
 
-            if (isProducer) {
-              if (!produces.includes(artifactId)) {
-                produces = [...produces, artifactId];
-              }
-              const outputIndex = dataOut.findIndex(
-                (output) => output.artifactId === artifactId
-              );
-              if (outputIndex >= 0) {
-                dataOut = dataOut.map((output, index) =>
-                  index === outputIndex
-                    ? {
+          if (isProducer) {
+            if (!produces.includes(artifactId)) {
+              produces = [...produces, artifactId];
+            }
+            const outputIndex = dataOut.findIndex((output) => output.artifactId === artifactId);
+            if (outputIndex >= 0) {
+              dataOut = dataOut.map((output, index) =>
+                index === outputIndex
+                  ? {
                       ...output,
                       label: normalizedName,
                       artifactId
                     }
-                    : output
-                );
-              } else {
-                dataOut = [
-                  ...dataOut,
-                  {
-                    id: `output-${dataOut.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    artifactId
-                  }
-                ];
-              }
-            } else if (wasProducer) {
-              produces = produces.filter((id) => id !== artifactId);
-              dataOut = dataOut.filter((output) => output.artifactId !== artifactId);
+                  : output
+              );
+            } else {
+              dataOut = [
+                ...dataOut,
+                {
+                  id: `output-${dataOut.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  artifactId
+                }
+              ];
             }
+          } else if (wasProducer) {
+            produces = produces.filter((id) => id !== artifactId);
+            dataOut = dataOut.filter((output) => output.artifactId !== artifactId);
+          }
 
-            const isConsumer = consumers.includes(module.id);
-            const wasConsumer = existing.consumerIds.includes(module.id);
-            let dataIn = module.dataIn;
+          const isConsumer = consumers.includes(module.id);
+          const wasConsumer = existing.consumerIds.includes(module.id);
+          let dataIn = module.dataIn;
 
-            if (isConsumer) {
-              if (dataIn.some((input) => input.sourceId === artifactId)) {
-                dataIn = dataIn.map((input) =>
-                  input.sourceId === artifactId ? { ...input, label: normalizedName } : input
-                );
-              } else {
-                dataIn = [
-                  ...dataIn,
-                  {
-                    id: `input-${dataIn.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    sourceId: artifactId
-                  }
-                ];
-              }
-            } else if (wasConsumer) {
-              dataIn = dataIn.filter((input) => input.sourceId !== artifactId);
+          if (isConsumer) {
+            if (dataIn.some((input) => input.sourceId === artifactId)) {
+              dataIn = dataIn.map((input) =>
+                input.sourceId === artifactId ? { ...input, label: normalizedName } : input
+              );
+            } else {
+              dataIn = [
+                ...dataIn,
+                {
+                  id: `input-${dataIn.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  sourceId: artifactId
+                }
+              ];
             }
+          } else if (wasConsumer) {
+            dataIn = dataIn.filter((input) => input.sourceId !== artifactId);
+          }
 
-            if (
-              produces !== module.produces ||
-              dataOut !== module.dataOut ||
-              dataIn !== module.dataIn
-            ) {
-              next = { ...module, produces, dataOut, dataIn };
-            }
+          if (produces !== module.produces || dataOut !== module.dataOut || dataIn !== module.dataIn) {
+            next = { ...module, produces, dataOut, dataIn };
+          }
 
-            return next;
-          })
-        )
+          return next;
+        })
       );
 
       setSelectedNode((prev) =>
@@ -2531,15 +2499,13 @@ function AppContent() {
       markGraphDirty();
       setArtifactData((prev) => prev.filter((artifact) => artifact.id !== artifactId));
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => ({
-            ...module,
-            produces: module.produces.filter((id) => id !== artifactId),
-            dataOut: module.dataOut.filter((output) => output.label !== existing.name),
-            dataIn: module.dataIn.filter((input) => input.sourceId !== artifactId)
-          }))
-        )
+      setModuleData((prev) =>
+        prev.map((module) => ({
+          ...module,
+          produces: module.produces.filter((id) => id !== artifactId),
+          dataOut: module.dataOut.filter((output) => output.label !== existing.name),
+          dataIn: module.dataIn.filter((input) => input.sourceId !== artifactId)
+        }))
       );
 
       setLayoutPositions((prev) => {
