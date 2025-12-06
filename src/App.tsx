@@ -1,9 +1,6 @@
 import { motion } from 'framer-motion';
 import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
 
-// ... (lines 2-3500 remain unchanged, but I can't skip them in replace_file_content unless I target specific blocks)
-// I will target the import line and the variants definition separately.
-
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
@@ -13,7 +10,6 @@ import {
   lazy,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -82,14 +78,16 @@ import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import { useAuth } from './context/AuthContext';
 import {
-  GraphProvider,
+  GraphDataProvider,
   buildDefaultGraphCopyOptions,
   buildLocalSnapshot,
-  useGraph,
+  useGraphData,
   LOCAL_GRAPH_ID,
   LOCAL_GRAPH_SUMMARY,
   STORAGE_KEY_ACTIVE_GRAPH_ID
-} from './context/GraphContext';
+} from './context/GraphDataContext';
+import { FilterProvider, useFilters } from './context/FilterContext';
+import { ThemeMode, UIProvider, useUI } from './context/UIContext';
 import Login from './components/Login';
 import { GraphContainer } from './features/graph/GraphContainer';
 import { ExpertsContainer } from './features/experts/ExpertsContainer';
@@ -116,8 +114,6 @@ const viewTabs = [
 ] as const;
 
 type ViewMode = (typeof viewTabs)[number]['value'];
-type ThemeMode = 'light' | 'dark';
-
 type AdminNotice = {
   id: number;
   type: 'success' | 'error';
@@ -165,8 +161,6 @@ function AppContent() {
     setIsGraphActionInProgress,
     graphActionStatus,
     setGraphActionStatus,
-    isCreatePanelOpen,
-    setIsCreatePanelOpen,
     domainData,
     setDomainData,
     moduleData,
@@ -177,6 +171,12 @@ function AppContent() {
     setInitiativeData,
     expertProfiles,
     setExpertProfiles,
+    loadSnapshot,
+    updateActiveGraph,
+    loadGraphsList,
+    persistGraphSnapshot
+  } = useGraphData();
+  const {
     selectedDomains,
     setSelectedDomains,
     statusFilters,
@@ -189,11 +189,25 @@ function AppContent() {
     setShowAllConnections,
     search,
     setSearch,
-    loadSnapshot,
-    updateActiveGraph,
-    loadGraphsList,
-    persistGraphSnapshot
-  } = useGraph();
+    selectedNode,
+    setSelectedNode
+  } = useFilters();
+  const {
+    themeMode,
+    setThemeMode,
+    sidebarRef,
+    sidebarBaseHeight,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    setIsDomainTreeOpen,
+    areFiltersOpen,
+    setAreFiltersOpen,
+    adminNotice,
+    showAdminNotice,
+    dismissAdminNotice,
+    isCreatePanelOpen,
+    setIsCreatePanelOpen
+  } = useUI();
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
@@ -201,16 +215,9 @@ function AppContent() {
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
-  const [isDomainTreeOpen, setIsDomainTreeOpen] = useState(false);
-  const [areFiltersOpen, setAreFiltersOpen] = useState(true);
-  const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarBaseHeight, setSidebarBaseHeight] = useState<number | null>(null);
-  const [adminNotice, setAdminNotice] = useState<AdminNotice | null>(null);
   const highlightedDomainId = selectedNode?.type === 'domain' ? selectedNode.id : null;
   const [statsActivated, setStatsActivated] = useState(() => viewMode === 'stats');
-  const adminNoticeIdRef = useRef(0);
   const moduleDraftPrefillIdRef = useRef(0);
   const [moduleDraftPrefill, setModuleDraftPrefill] = useState<ModuleDraftPrefillRequest | null>(null);
   const handleModuleDraftPrefillApplied = useCallback(() => {
@@ -220,11 +227,6 @@ function AppContent() {
     () => ({ nodes: layoutPositions }),
     [layoutPositions]
   );
-  const sidebarMaxHeight = useMemo(
-    () => (sidebarBaseHeight ? sidebarBaseHeight * 2 : null),
-    [sidebarBaseHeight]
-  );
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 
   const visibleMenuItems = useMemo(() => {
     if (!user) return [];
@@ -236,25 +238,9 @@ function AppContent() {
     });
   }, [user]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('app-theme');
-    if (saved === 'light') {
-      setThemeMode('light');
-      return;
-    }
-
-    if (saved !== 'light') {
-      localStorage.setItem('app-theme', 'light');
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('app-theme', themeMode);
-  }, [themeMode]);
-
   const handleSetThemeMode = useCallback((mode: ThemeMode) => {
     setThemeMode(mode);
-  }, []);
+  }, [setThemeMode]);
 
 
   const handleGraphSourceIdChange = useCallback(
@@ -281,49 +267,6 @@ function AppContent() {
   );
 
 
-  useLayoutEffect(() => {
-    const element = sidebarRef.current;
-    if (!element) {
-      return;
-    }
-
-    const measure = () => {
-      const target = sidebarRef.current;
-      if (!target) {
-        return;
-      }
-
-      if (isDomainTreeOpen) {
-        return;
-      }
-
-      if (!areFiltersOpen) {
-        return;
-      }
-
-      const height = Math.max(target.getBoundingClientRect().height, 0);
-      if (height < 1) {
-        return;
-      }
-      setSidebarBaseHeight((prev) => {
-        if (prev === null || Math.abs(prev - height) > 0.5) {
-          return height;
-        }
-
-        return prev;
-      });
-    };
-
-    measure();
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isDomainTreeOpen, areFiltersOpen]);
-
   const fetchUsers = useCallback(() => {
     if (!user || user.role !== 'admin') return;
     fetch('/api/users')
@@ -336,18 +279,6 @@ function AppContent() {
     fetchUsers();
   }, [fetchUsers]);
 
-
-  const showAdminNotice = useCallback(
-    (type: AdminNotice['type'], message: string) => {
-      adminNoticeIdRef.current += 1;
-      setAdminNotice({ id: adminNoticeIdRef.current, type, message });
-    },
-    []
-  );
-
-  const dismissAdminNotice = useCallback(() => {
-    setAdminNotice(null);
-  }, []);
 
   const handleCreateUser = useCallback(
     (draft: UserDraftPayload) => {
@@ -4218,9 +4149,13 @@ function getLinkEndpointId(value: LinkEndpoint): string {
 
 function App() {
   return (
-    <GraphProvider>
-      <AppContent />
-    </GraphProvider>
+    <UIProvider>
+      <GraphDataProvider>
+        <FilterProvider>
+          <AppContent />
+        </FilterProvider>
+      </GraphDataProvider>
+    </UIProvider>
   );
 }
 
