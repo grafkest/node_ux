@@ -30,13 +30,10 @@ import AdminPanel, {
 } from './components/AdminPanel';
 import FiltersPanel from './components/FiltersPanel';
 import {
-  GRAPH_SNAPSHOT_VERSION,
   type GraphDataScope,
   type GraphLayoutNodePosition,
   type GraphLayoutSnapshot,
-  type GraphSnapshotPayload,
-  type GraphSummary,
-  type GraphSyncStatus
+  type GraphSnapshotPayload
 } from './types/graph';
 import {
   createGraph as createGraphRequest,
@@ -91,6 +88,15 @@ import { loadStoredTasks, persistStoredTasks } from './utils/employeeTasks';
 import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import { useAuth } from './context/AuthContext';
+import {
+  GraphProvider,
+  buildDefaultGraphCopyOptions,
+  buildLocalSnapshot,
+  useGraph,
+  LOCAL_GRAPH_ID,
+  LOCAL_GRAPH_SUMMARY,
+  STORAGE_KEY_ACTIVE_GRAPH_ID
+} from './context/GraphContext';
 import Login from './components/Login';
 import { GraphContainer } from './features/graph/GraphContainer';
 import { ExpertsContainer } from './features/experts/ExpertsContainer';
@@ -102,32 +108,6 @@ import { ThemeContainer } from './features/theme/ThemeContainer';
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
 const MAX_LAYOUT_SPAN = 1800;
-const buildDefaultGraphCopyOptions = () =>
-  new Set<GraphDataScope>(['domains', 'modules', 'artifacts', 'experts', 'initiatives']);
-
-const LOCAL_GRAPH_ID = 'local-graph';
-const LOCAL_GRAPH_NAME = 'Локальные данные';
-const LOCAL_GRAPH_SUMMARY: GraphSummary = {
-  id: LOCAL_GRAPH_ID,
-  name: LOCAL_GRAPH_NAME,
-  isDefault: true,
-  createdAt: '1970-01-01T00:00:00.000Z'
-};
-
-const STORAGE_KEY_ACTIVE_GRAPH_ID = 'nedra-active-graph-id';
-
-function buildLocalSnapshot(): GraphSnapshotPayload {
-  return {
-    version: GRAPH_SNAPSHOT_VERSION,
-    exportedAt: undefined,
-    domains: initialDomainTree,
-    modules: initialModules,
-    artifacts: initialArtifacts,
-    experts: initialExperts,
-    initiatives: initialInitiatives,
-    layout: undefined
-  };
-}
 
 const StatsDashboard = lazy(async () => ({
   default: (await import('./components/StatsDashboard')).default
@@ -157,13 +137,57 @@ const GRAPH_UNAVAILABLE_MESSAGE =
 const isAnalyticsPanelEnabled =
   (import.meta.env.VITE_ENABLE_ANALYTICS_PANEL ?? 'true').toLowerCase() !== 'false';
 
-function App() {
+function AppContent() {
   const { user, logout } = useAuth();
-  const [graphs, setGraphs] = useState<GraphSummary[]>([]);
-  const graphsRef = useRef<GraphSummary[]>([]);
-  const [activeGraphId, setActiveGraphId] = useState<string | null>(null);
-  const [isGraphsLoading, setIsGraphsLoading] = useState(true);
-  const [graphListError, setGraphListError] = useState<string | null>(null);
+  const {
+    graphs,
+    setGraphs,
+    graphsRef,
+    activeGraphId,
+    setActiveGraphId,
+    activeGraphIdRef,
+    isGraphsLoading,
+    setIsGraphsLoading,
+    graphListError,
+    setGraphListError,
+    isSnapshotLoading,
+    setIsSnapshotLoading,
+    snapshotError,
+    setSnapshotError,
+    syncStatus,
+    setSyncStatus,
+    isSyncAvailable,
+    setIsSyncAvailable,
+    isReloadingSnapshot,
+    setIsReloadingSnapshot,
+    hasLoadedSnapshotRef,
+    skipNextSyncRef,
+    hasPendingPersistRef,
+    activeSnapshotControllerRef,
+    failedGraphLoadsRef,
+    updateActiveGraphRef,
+    loadSnapshotRef,
+    loadedGraphsRef,
+    shouldCaptureEngineLayoutRef,
+    layoutPositions,
+    setLayoutPositions,
+    layoutNormalizationRequest,
+    setLayoutNormalizationRequest,
+    graphRenderEpoch,
+    setGraphRenderEpoch,
+    graphNameDraft,
+    setGraphNameDraft,
+    graphSourceIdDraft,
+    setGraphSourceIdDraft,
+    graphCopyOptions,
+    setGraphCopyOptions,
+    isGraphActionInProgress,
+    setIsGraphActionInProgress,
+    graphActionStatus,
+    setGraphActionStatus,
+    isCreatePanelOpen,
+    setIsCreatePanelOpen
+  } = useGraph();
   const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
   const [moduleData, setModuleDataState] = useState<ModuleNode[]>(() =>
     recalculateReuseScores(initialModules)
@@ -200,34 +224,12 @@ function App() {
   const [adminNotice, setAdminNotice] = useState<AdminNotice | null>(null);
   const highlightedDomainId = selectedNode?.type === 'domain' ? selectedNode.id : null;
   const [statsActivated, setStatsActivated] = useState(() => viewMode === 'stats');
-  const [isSnapshotLoading, setIsSnapshotLoading] = useState(true);
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<GraphSyncStatus | null>(null);
-  const [isSyncAvailable, setIsSyncAvailable] = useState(false);
-  const [isReloadingSnapshot, setIsReloadingSnapshot] = useState(false);
-  const hasLoadedSnapshotRef = useRef(false);
-  const skipNextSyncRef = useRef(false);
-  const hasPendingPersistRef = useRef(false);
-  const activeSnapshotControllerRef = useRef<AbortController | null>(null);
-  const activeGraphIdRef = useRef<string | null>(null);
-  const failedGraphLoadsRef = useRef(new Set<string>());
-  const updateActiveGraphRef = useRef<
-    (graphId: string | null, options?: { loadSnapshot?: boolean }) => void
-  >();
-  const loadSnapshotRef = useRef<
-    (graphId: string, options?: { withOverlay?: boolean; fallbackGraphId?: string | null }) => Promise<void>
-  >();
-  const loadedGraphsRef = useRef(new Set<string>());
   const adminNoticeIdRef = useRef(0);
   const moduleDraftPrefillIdRef = useRef(0);
-  const shouldCaptureEngineLayoutRef = useRef(true);
   const [moduleDraftPrefill, setModuleDraftPrefill] = useState<ModuleDraftPrefillRequest | null>(null);
   const handleModuleDraftPrefillApplied = useCallback(() => {
     setModuleDraftPrefill(null);
   }, []);
-  const [layoutPositions, setLayoutPositions] = useState<Record<string, GraphLayoutNodePosition>>({});
-  const [layoutNormalizationRequest, setLayoutNormalizationRequest] = useState(0);
-  const [graphRenderEpoch, setGraphRenderEpoch] = useState(0);
   const layoutSnapshot = useMemo<GraphLayoutSnapshot>(
     () => ({ nodes: layoutPositions }),
     [layoutPositions]
@@ -236,7 +238,6 @@ function App() {
     () => (sidebarBaseHeight ? sidebarBaseHeight * 2 : null),
     [sidebarBaseHeight]
   );
-  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 
   const visibleMenuItems = useMemo(() => {
@@ -356,22 +357,6 @@ function App() {
     fetchUsers();
   }, [fetchUsers]);
 
-
-  useEffect(() => {
-    activeGraphIdRef.current = activeGraphId;
-    // Сохраняем выбранный граф в localStorage
-    if (typeof window !== 'undefined') {
-      if (activeGraphId) {
-        localStorage.setItem(STORAGE_KEY_ACTIVE_GRAPH_ID, activeGraphId);
-      } else {
-        localStorage.removeItem(STORAGE_KEY_ACTIVE_GRAPH_ID);
-      }
-    }
-  }, [activeGraphId]);
-
-  useEffect(() => {
-    graphsRef.current = graphs;
-  }, [graphs]);
 
   const showAdminNotice = useCallback(
     (type: AdminNotice['type'], message: string) => {
@@ -4638,6 +4623,14 @@ function getLinkEndpointId(value: LinkEndpoint): string {
   }
 
   return value;
+}
+
+function App() {
+  return (
+    <GraphProvider>
+      <AppContent />
+    </GraphProvider>
+  );
 }
 
 export default App;
