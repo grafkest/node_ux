@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Theme, presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
+import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
 
 // ... (lines 2-3500 remain unchanged, but I can't skip them in replace_file_content unless I target specific blocks)
 // I will target the import line and the variants definition separately.
@@ -18,7 +18,6 @@ import {
   useRef,
   useState
 } from 'react';
-import type { CSSProperties } from 'react';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import DomainTree from './components/DomainTree';
 import AdminPanel, {
@@ -76,9 +75,6 @@ import {
   type NonFunctionalRequirements
 } from './data';
 import styles from './App.module.css';
-import ExpertExplorer from './components/ExpertExplorer';
-import InitiativePlanner from './components/InitiativePlanner';
-import EmployeeWorkloadTrack from './components/EmployeeWorkloadTrack';
 import type { InitiativeCreationRequest } from './types/initiativeCreation';
 import { getSkillNameById } from './data/skills';
 import {
@@ -94,9 +90,14 @@ import type { TaskListItem } from './types/tasks';
 import { loadStoredTasks, persistStoredTasks } from './utils/employeeTasks';
 import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
-import GraphPersistenceControls from './components/GraphPersistenceControls';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
+import { GraphContainer } from './features/graph/GraphContainer';
+import { ExpertsContainer } from './features/experts/ExpertsContainer';
+import { InitiativesContainer } from './features/initiatives/InitiativesContainer';
+import { EmployeeTasksContainer } from './features/employeeTasks/EmployeeTasksContainer';
+import { AdminContainer } from './features/admin/AdminContainer';
+import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
@@ -3522,11 +3523,7 @@ function App() {
   };
 
   return (
-    <Theme
-      key={themeMode}
-      preset={themePreset}
-      className={styles.app}
-    >
+    <ThemeContainer preset={themePreset} themeKey={themeMode}>
       <LayoutShell
         currentView={viewMode}
         onViewChange={setViewMode}
@@ -3609,126 +3606,69 @@ function App() {
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <motion.main
-              className={styles.main}
-              initial="hidden"
-              animate={isGraphActive ? 'visible' : 'hidden'}
-              variants={pageVariants}
-            >
-              <aside
-                ref={sidebarRef}
-                className={styles.sidebar}
-                style={
-                  sidebarMaxHeight
-                    ? ({ '--sidebar-max-height': `${sidebarMaxHeight}px` } as CSSProperties)
-                    : undefined
-                }
-              >
-                <div className={styles.sidebarScrollArea}>
-                  <Collapse
-                    label={
-                      <Text size="s" weight="semibold">
-                        Домены
-                      </Text>
-                    }
-                    isOpen={isDomainTreeOpen}
-                    onClick={() => setIsDomainTreeOpen((prev) => !prev)}
-                    className={styles.domainCollapse}
-                  >
-                    <div className={styles.domainCollapseContent}>
-                      {isDomainTreeOpen ? (
-                        <DomainTree
-                          tree={domainData}
-                          selected={selectedDomains}
-                          onToggle={handleDomainToggle}
-                          descendants={domainDescendants}
-                        />
-                      ) : null}
-                    </div>
-                  </Collapse>
-                  <Collapse
-                    label={
-                      <Text size="s" weight="semibold">
-                        Фильтры
-                      </Text>
-                    }
-                    isOpen={areFiltersOpen}
-                    onClick={() => setAreFiltersOpen((prev) => !prev)}
-                    className={styles.filtersCollapse}
-                  >
-                    <div className={styles.filtersCollapseContent}>
-                      <FiltersPanel
-                        search={search}
-                        onSearchChange={handleSearchChange}
-                        statuses={allStatuses}
-                        activeStatuses={statusFilters}
-                        onToggleStatus={(status) => {
-                          setSelectedNode(null);
-                          setStatusFilters((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(status)) {
-                              next.delete(status);
-                            } else {
-                              next.add(status);
-                            }
-                            return next;
-                          });
-                        }}
-                        products={products}
-                        productFilter={productFilter}
-                        onProductChange={(nextProducts) => {
-                          setSelectedNode(null);
-                          setProductFilter(nextProducts);
-                        }}
-                        companies={companies}
-                        companyFilter={companyFilter}
-                        onCompanyChange={(nextCompany) => {
-                          setSelectedNode(null);
-                          setCompanyFilter(nextCompany);
-                        }}
-                        showAllConnections={showAllConnections}
-                        onToggleConnections={(value) => setShowAllConnections(value)}
-                      />
-                    </div>
-                  </Collapse>
-                </div>
-              </aside>
-              <section className={styles.graphSection}>
-                <div className={styles.graphContainer}>
-                  <GraphView
-                    modules={graphModules}
-                    domains={graphDomains}
-                    artifacts={graphArtifacts}
-                    initiatives={graphInitiatives}
-                    links={filteredLinks}
-                    graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
-                    onSelect={handleSelectNode}
-                    highlightedNode={selectedNode?.id ?? null}
-                    visibleDomainIds={relevantDomainIds}
-                    visibleModuleStatuses={statusFilters}
-                    layoutPositions={layoutPositions}
-                    normalizationRequest={layoutNormalizationRequest}
-                    onLayoutChange={handleLayoutChange}
-                  />
-                </div>
-                {shouldShowAnalytics && (
-                  <div className={styles.analytics}>
-                    <AnalyticsPanel modules={filteredModules} domainNameMap={domainNameMap} />
-                  </div>
-                )}
-              </section>
-              <aside className={styles.details}>
-                <NodeDetails
-                  node={selectedNode}
-                  onClose={() => setSelectedNode(null)}
-                  onNavigate={handleNavigate}
-                  moduleNameMap={moduleNameMap}
-                  artifactNameMap={artifactNameMap}
-                  domainNameMap={domainNameMap}
-                  expertProfiles={expertProfiles}
-                />
-              </aside>
-            </motion.main>
+            <GraphContainer
+              isActive={isGraphActive}
+              pageVariants={pageVariants}
+              sidebarRef={sidebarRef}
+              sidebarMaxHeight={sidebarMaxHeight}
+              isDomainTreeOpen={isDomainTreeOpen}
+              onToggleDomainTree={() => setIsDomainTreeOpen((prev) => !prev)}
+              areFiltersOpen={areFiltersOpen}
+              onToggleFilters={() => setAreFiltersOpen((prev) => !prev)}
+              domainData={domainData}
+              selectedDomains={selectedDomains}
+              onToggleDomain={handleDomainToggle}
+              domainDescendants={domainDescendants}
+              search={search}
+              onSearchChange={handleSearchChange}
+              allStatuses={allStatuses}
+              statusFilters={statusFilters}
+              onStatusToggle={(status) => {
+                setSelectedNode(null);
+                setStatusFilters((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(status)) {
+                    next.delete(status);
+                  } else {
+                    next.add(status);
+                  }
+                  return next;
+                });
+              }}
+              products={products}
+              productFilter={productFilter}
+              onProductFilterChange={(nextProducts) => {
+                setSelectedNode(null);
+                setProductFilter(nextProducts);
+              }}
+              companies={companies}
+              companyFilter={companyFilter}
+              onCompanyChange={(nextCompany) => {
+                setSelectedNode(null);
+                setCompanyFilter(nextCompany);
+              }}
+              showAllConnections={showAllConnections}
+              onToggleConnections={(value) => setShowAllConnections(value)}
+              graphModules={graphModules}
+              graphDomains={graphDomains}
+              graphArtifacts={graphArtifacts}
+              graphInitiatives={graphInitiatives}
+              filteredLinks={filteredLinks}
+              graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
+              onSelectNode={handleSelectNode}
+              selectedNode={selectedNode}
+              visibleDomainIds={relevantDomainIds}
+              layoutPositions={layoutPositions}
+              layoutNormalizationRequest={layoutNormalizationRequest}
+              onLayoutChange={handleLayoutChange}
+              shouldShowAnalytics={shouldShowAnalytics}
+              filteredModules={filteredModules}
+              domainNameMap={domainNameMap}
+              moduleNameMap={moduleNameMap}
+              artifactNameMap={artifactNameMap}
+              expertProfiles={expertProfiles}
+              onNavigate={handleNavigate}
+            />
             {(statsActivated || isStatsActive) && (
               <motion.main
                 className={styles.statsMain}
@@ -3746,117 +3686,90 @@ function App() {
                 </Suspense>
               </motion.main>
             )}
-            <motion.main
-              className={styles.expertMain}
-              initial="hidden"
-              animate={isExpertsActive ? 'visible' : 'hidden'}
-              variants={pageVariants}
-            >
-              <ExpertExplorer
-                experts={expertProfiles}
-                modules={moduleData}
-                moduleNameMap={moduleNameMap}
-                moduleDomainMap={moduleDomainMap}
-                domainNameMap={domainNameMap}
-                initiatives={initiativeData}
-                onUpdateExpertSkills={handleUpdateExpertSkills}
-                onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
-              />
-            </motion.main>
-            <motion.main
-              className={styles.initiativesMain}
-              initial="hidden"
-              animate={isInitiativesActive ? 'visible' : 'hidden'}
-              variants={pageVariants}
-            >
-              <InitiativePlanner
-                initiatives={initiativeData}
-                experts={expertProfiles}
-                domains={domainData}
-                modules={moduleData}
-                domainNameMap={domainNameMap}
-                employeeTasks={employeeTasks}
-                onTogglePin={handleToggleInitiativePin}
-                onAddRisk={handleAddInitiativeRisk}
-                onRemoveRisk={handleRemoveInitiativeRisk}
-                onStatusChange={handleInitiativeStatusChange}
-                onExport={handleInitiativeExport}
-                onCreateInitiative={handlePlannerCreateInitiative}
-                onUpdateInitiative={handlePlannerUpdateInitiative}
-              />
-            </motion.main>
-            <motion.main
-              className={styles.employeeTasksMain}
-              initial="hidden"
-              animate={isEmployeeTasksActive ? 'visible' : 'hidden'}
-              variants={pageVariants}
-            >
-              <EmployeeWorkloadTrack
-                experts={expertProfiles}
-                initiatives={initiativeData}
-                tasks={employeeTasks}
-                onTasksChange={setEmployeeTasks}
-              />
-            </motion.main>
-            <motion.main
-              className={styles.creationMain}
-              initial="hidden"
-              animate={isAdminActive ? 'visible' : 'hidden'}
-              variants={pageVariants}
-            >
-              <GraphPersistenceControls
-                modules={moduleData}
-                domains={domainData}
-                artifacts={artifactData}
-                experts={expertProfiles}
-                initiatives={initiativeData}
-                onImport={handleImportGraph}
-                onImportFromGraph={handleImportFromExistingGraph}
-                graphs={graphs}
-                activeGraphId={activeGraphId}
-                onGraphSelect={handleGraphSelect}
-                onGraphCreate={handleCreateGraph}
-                onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
-                isGraphListLoading={isGraphsLoading}
-                syncStatus={syncStatus}
-                layout={layoutSnapshot}
-                isSyncAvailable={isSyncAvailable}
-                onRetryLoad={handleRetryLoadSnapshot}
-                isReloading={isReloadingSnapshot}
-              />
-              <AdminPanel
-                modules={moduleData}
-                domains={domainData}
-                artifacts={artifactData}
-                experts={expertProfiles}
-                initiatives={initiativeData}
-                employeeTasks={employeeTasks}
-                moduleDraftPrefill={moduleDraftPrefill}
-                onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
-                onCreateModule={handleCreateModule}
-                onUpdateModule={handleUpdateModule}
-                onDeleteModule={handleDeleteModule}
-                onCreateDomain={handleCreateDomain}
-                onUpdateDomain={handleUpdateDomain}
-                onDeleteDomain={handleDeleteDomain}
-                onCreateArtifact={handleCreateArtifact}
-                onUpdateArtifact={handleUpdateArtifact}
-                onDeleteArtifact={handleDeleteArtifact}
-                onCreateExpert={handleCreateExpert}
-                onUpdateExpert={handleUpdateExpert}
-                onDeleteExpert={handleDeleteExpert}
-                onUpdateEmployeeTasks={setEmployeeTasks}
-                users={users}
-                onCreateUser={handleCreateUser}
-                onUpdateUser={handleUpdateUser}
-                onDeleteUser={handleDeleteUser}
-                currentUser={user}
-              />
-            </motion.main>
+            <ExpertsContainer
+              isActive={isExpertsActive}
+              pageVariants={pageVariants}
+              experts={expertProfiles}
+              modules={moduleData}
+              moduleNameMap={moduleNameMap}
+              moduleDomainMap={moduleDomainMap}
+              domainNameMap={domainNameMap}
+              initiatives={initiativeData}
+              onUpdateExpertSkills={handleUpdateExpertSkills}
+              onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
+            />
+            <InitiativesContainer
+              isActive={isInitiativesActive}
+              pageVariants={pageVariants}
+              initiatives={initiativeData}
+              experts={expertProfiles}
+              domains={domainData}
+              modules={moduleData}
+              domainNameMap={domainNameMap}
+              employeeTasks={employeeTasks}
+              onTogglePin={handleToggleInitiativePin}
+              onAddRisk={handleAddInitiativeRisk}
+              onRemoveRisk={handleRemoveInitiativeRisk}
+              onStatusChange={handleInitiativeStatusChange}
+              onExport={handleInitiativeExport}
+              onCreateInitiative={handlePlannerCreateInitiative}
+              onUpdateInitiative={handlePlannerUpdateInitiative}
+            />
+            <EmployeeTasksContainer
+              isActive={isEmployeeTasksActive}
+              pageVariants={pageVariants}
+              experts={expertProfiles}
+              initiatives={initiativeData}
+              tasks={employeeTasks}
+              onTasksChange={setEmployeeTasks}
+            />
+            <AdminContainer
+              isActive={isAdminActive}
+              pageVariants={pageVariants}
+              modules={moduleData}
+              domains={domainData}
+              artifacts={artifactData}
+              experts={expertProfiles}
+              initiatives={initiativeData}
+              employeeTasks={employeeTasks}
+              moduleDraftPrefill={moduleDraftPrefill}
+              onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
+              onCreateModule={handleCreateModule}
+              onUpdateModule={handleUpdateModule}
+              onDeleteModule={handleDeleteModule}
+              onCreateDomain={handleCreateDomain}
+              onUpdateDomain={handleUpdateDomain}
+              onDeleteDomain={handleDeleteDomain}
+              onCreateArtifact={handleCreateArtifact}
+              onUpdateArtifact={handleUpdateArtifact}
+              onDeleteArtifact={handleDeleteArtifact}
+              onCreateExpert={handleCreateExpert}
+              onUpdateExpert={handleUpdateExpert}
+              onDeleteExpert={handleDeleteExpert}
+              onUpdateEmployeeTasks={setEmployeeTasks}
+              users={users}
+              onCreateUser={handleCreateUser}
+              onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
+              currentUser={user}
+              graphs={graphs}
+              activeGraphId={activeGraphId}
+              onGraphSelect={handleGraphSelect}
+              onGraphCreate={handleCreateGraph}
+              onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
+              isGraphListLoading={isGraphsLoading}
+              syncStatus={syncStatus}
+              layout={layoutSnapshot}
+              isSyncAvailable={isSyncAvailable}
+              onImport={handleImportGraph}
+              onImportFromGraph={handleImportFromExistingGraph}
+              onRetryLoad={handleRetryLoadSnapshot}
+              isReloading={isReloadingSnapshot}
+            />
           </>
         )}
       </LayoutShell>
-    </Theme>
+    </ThemeContainer>
   );
 }
 
