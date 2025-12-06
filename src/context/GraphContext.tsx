@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -22,6 +23,11 @@ import {
   initiatives as initialInitiatives,
   modules as initialModules
 } from '../data';
+import {
+  fetchGraphSnapshot,
+  fetchGraphSummaries,
+  persistGraphSnapshot as persistGraphSnapshotRequest
+} from '../services/graphStorage';
 
 export const LOCAL_GRAPH_ID = 'local-graph';
 export const LOCAL_GRAPH_NAME = 'Локальные данные';
@@ -114,6 +120,37 @@ type GraphContextValue = {
   ) => void;
   isCreatePanelOpen: boolean;
   setIsCreatePanelOpen: (value: boolean) => void;
+  loadSnapshot: (
+    graphId: string,
+    options: {
+      applySnapshot: (snapshot: GraphSnapshotPayload) => void;
+      withOverlay?: boolean;
+      fallbackGraphId?: string | null;
+      onGraphUnavailable?: () => void;
+    }
+  ) => Promise<void>;
+  updateActiveGraph: (
+    graphId: string | null,
+    options?: {
+      loadSnapshot?: boolean;
+      applySnapshot?: (snapshot: GraphSnapshotPayload) => void;
+      onGraphUnavailable?: () => void;
+    }
+  ) => void;
+  loadGraphsList: (
+    preferredGraphId?: string | null,
+    options?: {
+      preserveSelection?: boolean;
+      preferDefault?: boolean;
+      applySnapshot?: (snapshot: GraphSnapshotPayload) => void;
+      onGraphUnavailable?: () => void;
+    }
+  ) => Promise<void>;
+  persistGraphSnapshot: (
+    graphId: string,
+    payload: GraphSnapshotPayload,
+    options?: { signal?: AbortSignal }
+  ) => Promise<void>;
 };
 
 const GraphContext = createContext<GraphContextValue | null>(null);
@@ -136,14 +173,29 @@ export function GraphProvider({ children }: PropsWithChildren) {
   const activeSnapshotControllerRef = useRef<AbortController | null>(null);
   const failedGraphLoadsRef = useRef(new Set<string>());
   const updateActiveGraphRef = useRef<
-    ((graphId: string | null, options?: { loadSnapshot?: boolean }) => void) | undefined
+    |
+      ((
+        graphId: string | null,
+        options?: {
+          loadSnapshot?: boolean;
+          applySnapshot?: (snapshot: GraphSnapshotPayload) => void;
+          onGraphUnavailable?: () => void;
+        }
+      ) => void)
+    | undefined
   >();
   const loadSnapshotRef = useRef<
-    ((
-      graphId: string,
-      options?: { withOverlay?: boolean; fallbackGraphId?: string | null }
-    ) => Promise<void>) |
-      undefined
+    |
+      ((
+        graphId: string,
+        options: {
+          applySnapshot: (snapshot: GraphSnapshotPayload) => void;
+          withOverlay?: boolean;
+          fallbackGraphId?: string | null;
+          onGraphUnavailable?: () => void;
+        }
+      ) => Promise<void>)
+    | undefined
   >();
   const loadedGraphsRef = useRef(new Set<string>([LOCAL_GRAPH_ID]));
   const shouldCaptureEngineLayoutRef = useRef(true);
@@ -175,6 +227,357 @@ export function GraphProvider({ children }: PropsWithChildren) {
       }
     }
   }, [activeGraphId]);
+
+  const loadSnapshot = useCallback(
+    async (
+      graphId: string,
+      {
+        applySnapshot,
+        withOverlay = false,
+        fallbackGraphId = null,
+        onGraphUnavailable
+      }: {
+        applySnapshot: (snapshot: GraphSnapshotPayload) => void;
+        withOverlay?: boolean;
+        fallbackGraphId?: string | null;
+        onGraphUnavailable?: () => void;
+      }
+    ) => {
+      if (activeSnapshotControllerRef.current) {
+        activeSnapshotControllerRef.current.abort();
+        activeSnapshotControllerRef.current = null;
+      }
+
+      const controller = new AbortController();
+      activeSnapshotControllerRef.current = controller;
+
+      if (withOverlay) {
+        setIsSnapshotLoading(true);
+      } else {
+        setIsReloadingSnapshot(true);
+      }
+
+      try {
+        if (graphId === LOCAL_GRAPH_ID) {
+          applySnapshot(buildLocalSnapshot());
+          hasLoadedSnapshotRef.current = true;
+          setSnapshotError(null);
+          setIsSyncAvailable(false);
+          setSyncStatus({
+            state: 'idle',
+            message: 'Работаем с локальными данными. Изменения не сохраняются.'
+          });
+          return;
+        }
+
+        const snapshot = await fetchGraphSnapshot(graphId, controller.signal);
+        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
+          return;
+        }
+        applySnapshot(snapshot);
+        hasLoadedSnapshotRef.current = true;
+        failedGraphLoadsRef.current.delete(graphId);
+        loadedGraphsRef.current.add(graphId);
+        skipNextSyncRef.current = true;
+        setSnapshotError(null);
+        setIsSyncAvailable(true);
+        setSyncStatus({
+          state: 'idle',
+          message: 'Данные синхронизированы с сервером.'
+        });
+        if (withOverlay && activeGraphIdRef.current === graphId) {
+          setIsSnapshotLoading(false);
+        }
+      } catch (error) {
+        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
+          return;
+        }
+
+        console.error(`Не удалось загрузить граф ${graphId}`, error);
+        const detail = error instanceof Error ? error.message : null;
+        if (
+          graphId !== LOCAL_GRAPH_ID &&
+          activeGraphIdRef.current === graphId &&
+          activeGraphIdRef.current !== null
+        ) {
+          onGraphUnavailable?.();
+        }
+        setSnapshotError(
+          detail
+            ? `Не удалось загрузить данные графа (${detail}). Выберите другой граф или попробуйте ещё раз.`
+            : 'Не удалось загрузить данные графа. Выберите другой граф или попробуйте ещё раз.'
+        );
+        setIsSyncAvailable(false);
+        const syncErrorMessage = detail
+          ? `Нет связи с сервером (${detail}). Изменения не сохранятся.`
+          : 'Нет связи с сервером. Изменения не сохранятся.';
+        setSyncStatus({
+          state: 'error',
+          message: syncErrorMessage
+        });
+
+        failedGraphLoadsRef.current.add(graphId);
+
+        if (fallbackGraphId !== undefined && updateActiveGraphRef.current) {
+          const fallbackId =
+            fallbackGraphId && graphs.some((graph) => graph.id === fallbackGraphId)
+              ? fallbackGraphId
+              : null;
+
+          if (fallbackId) {
+            if (failedGraphLoadsRef.current.has(fallbackId)) {
+              console.warn(`Пропуск fallback на граф ${fallbackId}: уже в списке неудачных попыток`);
+              updateActiveGraphRef.current(null, { loadSnapshot: false });
+              return;
+            }
+            const shouldReloadFallback = !loadedGraphsRef.current.has(fallbackId);
+            updateActiveGraphRef.current(fallbackId, { loadSnapshot: shouldReloadFallback });
+          } else {
+            updateActiveGraphRef.current(null, { loadSnapshot: false });
+          }
+        }
+      } finally {
+        const isCurrentRequest = activeSnapshotControllerRef.current === controller;
+
+        if (isCurrentRequest) {
+          activeSnapshotControllerRef.current = null;
+        }
+
+        if (withOverlay) {
+          if (isCurrentRequest && activeGraphIdRef.current === graphId) {
+            setIsSnapshotLoading(false);
+          }
+        } else if (isCurrentRequest && activeGraphIdRef.current === graphId) {
+          setIsReloadingSnapshot(false);
+        }
+      }
+    },
+    [graphs]
+  );
+
+  loadSnapshotRef.current = loadSnapshot;
+
+  const updateActiveGraph = useCallback(
+    (
+      graphId: string | null,
+      { loadSnapshot: shouldLoadSnapshot = graphId !== null, applySnapshot, onGraphUnavailable }: {
+        loadSnapshot?: boolean;
+        applySnapshot?: (snapshot: GraphSnapshotPayload) => void;
+        onGraphUnavailable?: () => void;
+      } = {}
+    ) => {
+      const previousGraphId = activeGraphIdRef.current;
+
+      if (graphId === null) {
+        activeGraphIdRef.current = null;
+        setActiveGraphId(null);
+        activeSnapshotControllerRef.current?.abort();
+        activeSnapshotControllerRef.current = null;
+        hasLoadedSnapshotRef.current = false;
+        hasPendingPersistRef.current = false;
+        setIsSyncAvailable(false);
+        setSyncStatus(null);
+        setSnapshotError(null);
+        setIsReloadingSnapshot(false);
+        setIsSnapshotLoading(false);
+        return;
+      }
+
+      const isValidTarget = graphsRef.current.some((graph) => graph.id === graphId);
+      if (!isValidTarget) {
+        if (graphId !== LOCAL_GRAPH_ID && activeGraphIdRef.current === graphId && graphId !== null) {
+          onGraphUnavailable?.();
+        }
+        return;
+      }
+
+      if (graphId !== LOCAL_GRAPH_ID && shouldLoadSnapshot && failedGraphLoadsRef.current.has(graphId)) {
+        console.warn(`Пропуск загрузки графа ${graphId}: уже в списке неудачных попыток`);
+        setSnapshotError('Граф недоступен. Попробуйте выбрать другой граф или обновить список.');
+        setIsSyncAvailable(false);
+        setSyncStatus({
+          state: 'error',
+          message: 'Граф недоступен. Выберите другой граф или попробуйте ещё раз.'
+        });
+        setIsSnapshotLoading(false);
+        return;
+      }
+
+      if (previousGraphId === graphId) {
+        return;
+      }
+
+      activeGraphIdRef.current = graphId;
+      setActiveGraphId(graphId);
+
+      hasLoadedSnapshotRef.current = false;
+      hasPendingPersistRef.current = false;
+      setIsSyncAvailable(false);
+      setSyncStatus(null);
+      setSnapshotError(null);
+      setIsReloadingSnapshot(false);
+
+      if (shouldLoadSnapshot && applySnapshot) {
+        setIsSnapshotLoading(true);
+        void loadSnapshot(graphId, {
+          withOverlay: true,
+          fallbackGraphId: previousGraphId,
+          applySnapshot,
+          onGraphUnavailable
+        });
+      } else {
+        setIsSnapshotLoading(false);
+      }
+
+      setGraphRenderEpoch((value) => value + 1);
+    },
+    [loadSnapshot]
+  );
+
+  updateActiveGraphRef.current = updateActiveGraph;
+
+  const loadGraphsList = useCallback(
+    async (
+      preferredGraphId: string | null = null,
+      {
+        preserveSelection = true,
+        preferDefault = false,
+        applySnapshot,
+        onGraphUnavailable
+      }: {
+        preserveSelection?: boolean;
+        preferDefault?: boolean;
+        applySnapshot?: (snapshot: GraphSnapshotPayload) => void;
+        onGraphUnavailable?: () => void;
+      } = {}
+    ) => {
+      setIsGraphsLoading(true);
+      try {
+        const list = await fetchGraphSummaries();
+        graphsRef.current = list;
+        setGraphs(list);
+        setGraphListError(null);
+        loadedGraphsRef.current = new Set(
+          [...loadedGraphsRef.current].filter((id) => list.some((graph) => graph.id === id))
+        );
+
+        const currentActiveId = activeGraphIdRef.current;
+        const nextActiveId = (() => {
+          if (preferredGraphId && list.some((graph) => graph.id === preferredGraphId)) {
+            return preferredGraphId;
+          }
+          if (preserveSelection && currentActiveId && list.some((graph) => graph.id === currentActiveId)) {
+            return currentActiveId;
+          }
+          if (preferDefault) {
+            const defaultGraph = list.find((graph) => graph.isDefault);
+            if (defaultGraph) {
+              return defaultGraph.id;
+            }
+          }
+          if (!preserveSelection && !preferDefault && typeof window !== 'undefined') {
+            const savedGraphId = localStorage.getItem(STORAGE_KEY_ACTIVE_GRAPH_ID);
+            if (savedGraphId && list.some((graph) => graph.id === savedGraphId)) {
+              return savedGraphId;
+            }
+          }
+          const defaultGraph = list.find((graph) => graph.isDefault);
+          if (defaultGraph) {
+            return defaultGraph.id;
+          }
+          return list[0]?.id ?? null;
+        })();
+
+        if (nextActiveId && applySnapshot) {
+          updateActiveGraph(nextActiveId, { applySnapshot });
+        } else {
+          updateActiveGraph(null, { loadSnapshot: false });
+        }
+      } catch (error) {
+        console.error('Не удалось обновить список графов', error);
+        const fallbackMessage = 'Не удалось загрузить список графов.';
+        let message = fallbackMessage;
+
+        if (error instanceof TypeError) {
+          message =
+            'Не удалось подключиться к серверу графа. Запустите "npm run server" или используйте "npm run dev:full".';
+        } else if (error instanceof Error && error.message) {
+          message = error.message;
+        }
+
+        setGraphListError(message);
+
+        const currentActiveId = activeGraphIdRef.current;
+        const shouldPreserveSelection = preferredGraphId !== null && preferredGraphId !== undefined;
+        const shouldSwitchToLocal = !currentActiveId || (!shouldPreserveSelection && currentActiveId !== LOCAL_GRAPH_ID);
+
+        if (shouldPreserveSelection && preferredGraphId && currentActiveId === preferredGraphId && !shouldSwitchToLocal) {
+          setIsSyncAvailable(false);
+          setSyncStatus({
+            state: 'error',
+            message: 'Нет связи с сервером. Изменения не сохранятся.'
+          });
+        } else {
+          const fallbackGraphs = [LOCAL_GRAPH_SUMMARY];
+          graphsRef.current = fallbackGraphs;
+          setGraphs(fallbackGraphs);
+          loadedGraphsRef.current = new Set([LOCAL_GRAPH_ID]);
+
+          onGraphUnavailable?.();
+
+          if (activeGraphIdRef.current !== LOCAL_GRAPH_ID) {
+            updateActiveGraph(LOCAL_GRAPH_ID, { loadSnapshot: false });
+          }
+
+          if (applySnapshot) {
+            applySnapshot(buildLocalSnapshot());
+          }
+          setIsSyncAvailable(false);
+          setSyncStatus({
+            state: 'error',
+            message: 'Нет связи с сервером. Изменения не сохранятся.'
+          });
+        }
+      } finally {
+        setIsGraphsLoading(false);
+      }
+    },
+    [updateActiveGraph]
+  );
+
+  const persistGraphSnapshot = useCallback(
+    async (graphId: string, payload: GraphSnapshotPayload, { signal }: { signal?: AbortSignal } = {}) => {
+      setSyncStatus((prev) => {
+        if (prev?.state === 'error') {
+          return { state: 'saving', message: 'Повторяем синхронизацию...' };
+        }
+        return { state: 'saving', message: 'Сохраняем изменения в хранилище...' };
+      });
+
+      try {
+        await persistGraphSnapshotRequest(graphId, payload, signal);
+        const exportTimestamp = payload.exportedAt ?? new Date().toISOString();
+        setSyncStatus({
+          state: 'idle',
+          message: `Сохранено ${new Date().toLocaleTimeString()}`
+        });
+        setGraphs((prev) =>
+          prev.map((graph) => (graph.id === graphId ? { ...graph, updatedAt: exportTimestamp } : graph))
+        );
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        console.error('Не удалось сохранить граф', error);
+        hasPendingPersistRef.current = true;
+        setSyncStatus({
+          state: 'error',
+          message: error instanceof Error ? error.message : 'Не удалось сохранить данные.'
+        });
+      }
+    },
+    []
+  );
 
   const value: GraphContextValue = {
     graphs,
@@ -223,7 +626,11 @@ export function GraphProvider({ children }: PropsWithChildren) {
     graphActionStatus,
     setGraphActionStatus,
     isCreatePanelOpen,
-    setIsCreatePanelOpen
+    setIsCreatePanelOpen,
+    loadSnapshot,
+    updateActiveGraph,
+    loadGraphsList,
+    persistGraphSnapshot
   };
 
   return <GraphContext.Provider value={value}>{children}</GraphContext.Provider>;

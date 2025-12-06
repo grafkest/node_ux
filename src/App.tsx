@@ -38,10 +38,7 @@ import {
 import {
   createGraph as createGraphRequest,
   deleteGraph as deleteGraphRequest,
-  fetchGraphSnapshot,
-  fetchGraphSummaries,
-  importGraphFromSource,
-  persistGraphSnapshot
+  importGraphFromSource
 } from './services/graphStorage';
 import GraphView, { type GraphNode } from './components/GraphView';
 import NodeDetails from './components/NodeDetails';
@@ -186,7 +183,11 @@ function AppContent() {
     graphActionStatus,
     setGraphActionStatus,
     isCreatePanelOpen,
-    setIsCreatePanelOpen
+    setIsCreatePanelOpen,
+    loadSnapshot,
+    updateActiveGraph,
+    loadGraphsList,
+    persistGraphSnapshot
   } = useGraph();
   const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
   const [moduleData, setModuleDataState] = useState<ModuleNode[]>(() =>
@@ -567,326 +568,17 @@ function AppContent() {
     }
   }, []);
 
-  const loadSnapshot = useCallback(
-    async (
-      graphId: string,
-      {
-        withOverlay,
-        fallbackGraphId
-      }: { withOverlay?: boolean; fallbackGraphId?: string | null } = {}
-    ) => {
-      // Защита от циклов: не пытаться загружать граф, если он уже в списке неудачных
-      if (graphId !== LOCAL_GRAPH_ID && failedGraphLoadsRef.current.has(graphId)) {
-        console.warn(`Пропуск загрузки графа ${graphId}: уже в списке неудачных попыток`);
-        return;
-      }
-
-      activeSnapshotControllerRef.current?.abort();
-
-      const controller = new AbortController();
-      activeSnapshotControllerRef.current = controller;
-
-      if (withOverlay) {
-        setIsSnapshotLoading(true);
-      } else {
-        setIsReloadingSnapshot(true);
-      }
-
-      try {
-        if (graphId === LOCAL_GRAPH_ID) {
-          applySnapshot(buildLocalSnapshot());
-          loadedGraphsRef.current.add(graphId);
-          failedGraphLoadsRef.current.delete(graphId);
-          setSnapshotError(null);
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'idle',
-            message: 'Работаем с локальными данными. Изменения не сохраняются.'
-          });
-          return;
-        }
-
-        const snapshot = await fetchGraphSnapshot(graphId, controller.signal);
-        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
-          return;
-        }
-        applySnapshot(snapshot);
-        failedGraphLoadsRef.current.delete(graphId);
-        loadedGraphsRef.current.add(graphId);
-        skipNextSyncRef.current = true;
-        setSnapshotError(null);
-        setIsSyncAvailable(true);
-        setSyncStatus({
-          state: 'idle',
-          message: 'Данные синхронизированы с сервером.'
-        });
-        // Устанавливаем флаг загрузки в false сразу после успешной загрузки
-        if (withOverlay && activeGraphIdRef.current === graphId) {
-          setIsSnapshotLoading(false);
-        }
-      } catch (error) {
-        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
-          return;
-        }
-
-        console.error(`Не удалось загрузить граф ${graphId}`, error);
-        const detail = error instanceof Error ? error.message : null;
-        // Показываем уведомление только если граф был явно выбран пользователем и не является локальным
-        if (
-          graphId !== LOCAL_GRAPH_ID &&
-          activeGraphIdRef.current === graphId &&
-          activeGraphIdRef.current !== null
-        ) {
-          showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
-        }
-        setSnapshotError(
-          detail
-            ? `Не удалось загрузить данные графа (${detail}). Выберите другой граф или попробуйте ещё раз.`
-            : 'Не удалось загрузить данные графа. Выберите другой граф или попробуйте ещё раз.'
-        );
-        setIsSyncAvailable(false);
-        const syncErrorMessage = detail
-          ? `Нет связи с сервером (${detail}). Изменения не сохранятся.`
-          : 'Нет связи с сервером. Изменения не сохранятся.';
-        setSyncStatus({
-          state: 'error',
-          message: syncErrorMessage
-        });
-
-        failedGraphLoadsRef.current.add(graphId);
-
-        // Ограничение попыток fallback: не переключаться, если fallback тоже неудачен
-        if (fallbackGraphId !== undefined && updateActiveGraphRef.current) {
-          const fallbackId =
-            fallbackGraphId && graphs.some((graph) => graph.id === fallbackGraphId)
-              ? fallbackGraphId
-              : null;
-
-          if (fallbackId) {
-            // Если fallback уже в списке неудачных, не пытаться переключаться
-            if (failedGraphLoadsRef.current.has(fallbackId)) {
-              console.warn(`Пропуск fallback на граф ${fallbackId}: уже в списке неудачных попыток`);
-              updateActiveGraphRef.current(null, { loadSnapshot: false });
-              return;
-            }
-            // Переключаться на fallback только если он еще не загружался или уже успешно загружен
-            const shouldReloadFallback = !loadedGraphsRef.current.has(fallbackId);
-            updateActiveGraphRef.current(fallbackId, { loadSnapshot: shouldReloadFallback });
-          } else {
-            updateActiveGraphRef.current(null, { loadSnapshot: false });
-          }
-        }
-      } finally {
-        const isCurrentRequest = activeSnapshotControllerRef.current === controller;
-
-        if (isCurrentRequest) {
-          activeSnapshotControllerRef.current = null;
-        }
-
-        if (withOverlay) {
-          if (isCurrentRequest && activeGraphIdRef.current === graphId) {
-            setIsSnapshotLoading(false);
-          }
-        } else if (isCurrentRequest && activeGraphIdRef.current === graphId) {
-          setIsReloadingSnapshot(false);
-        }
-      }
-    },
-    [applySnapshot, graphs, showAdminNotice]
-  );
-
-  loadSnapshotRef.current = loadSnapshot;
-
-  const updateActiveGraph = useCallback(
-    (graphId: string | null, options: { loadSnapshot?: boolean } = {}) => {
-      const { loadSnapshot: shouldLoadSnapshot = graphId !== null } = options;
-      const previousGraphId = activeGraphIdRef.current;
-
-      if (graphId === null) {
-        activeGraphIdRef.current = null;
-        setActiveGraphId(null);
-        activeSnapshotControllerRef.current?.abort();
-        activeSnapshotControllerRef.current = null;
-        hasLoadedSnapshotRef.current = false;
-        hasPendingPersistRef.current = false;
-        setIsSyncAvailable(false);
-        setSyncStatus(null);
-        setSnapshotError(null);
-        setIsReloadingSnapshot(false);
-        setIsSnapshotLoading(false);
-        return;
-      }
-
-      const isValidTarget = graphsRef.current.some((graph) => graph.id === graphId);
-      if (!isValidTarget) {
-        // Показываем уведомление только если граф был явно выбран пользователем и не является локальным
-        if (graphId !== LOCAL_GRAPH_ID && activeGraphIdRef.current === graphId && graphId !== null) {
-          showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
-        }
-        return;
-      }
-
-      // Дополнительная проверка: не пытаться загружать граф, если он уже в списке неудачных
-      // (кроме локального графа, который всегда доступен)
-      if (graphId !== LOCAL_GRAPH_ID && shouldLoadSnapshot && failedGraphLoadsRef.current.has(graphId)) {
-        console.warn(`Пропуск загрузки графа ${graphId}: уже в списке неудачных попыток`);
-        setSnapshotError(`Граф недоступен. Попробуйте выбрать другой граф или обновить список.`);
-        setIsSyncAvailable(false);
-        setSyncStatus({
-          state: 'error',
-          message: 'Граф недоступен. Выберите другой граф или попробуйте ещё раз.'
-        });
-        setIsSnapshotLoading(false);
-        return;
-      }
-
-      if (previousGraphId === graphId) {
-        return;
-      }
-
-      activeGraphIdRef.current = graphId;
-      setActiveGraphId(graphId);
-
-      hasLoadedSnapshotRef.current = false;
-      hasPendingPersistRef.current = false;
-      setIsSyncAvailable(false);
-      setSyncStatus(null);
-      setSnapshotError(null);
-      setIsReloadingSnapshot(false);
-
-      if (shouldLoadSnapshot) {
-        setIsSnapshotLoading(true);
-        void loadSnapshot(graphId, { withOverlay: true, fallbackGraphId: previousGraphId });
-      } else {
-        setIsSnapshotLoading(false);
-      }
-
-      setGraphRenderEpoch((value) => value + 1);
-    },
-    [loadSnapshot, showAdminNotice]
-  );
-
-  updateActiveGraphRef.current = updateActiveGraph;
-
-  const refreshGraphs = useCallback(
-    async (
-      preferredGraphId?: string | null,
-      options: { preserveSelection?: boolean; preferDefault?: boolean } = {}
-    ) => {
-      const { preserveSelection = true, preferDefault = false } = options;
-      setIsGraphsLoading(true);
-      try {
-        const list = await fetchGraphSummaries();
-        graphsRef.current = list;
-        setGraphs(list);
-        setGraphListError(null);
-        loadedGraphsRef.current = new Set(
-          [...loadedGraphsRef.current].filter((id) => list.some((graph) => graph.id === id))
-        );
-
-        const currentActiveId = activeGraphIdRef.current;
-        const nextActiveId = (() => {
-          // 1. Если передан preferredGraphId и он существует в списке - используем его
-          if (preferredGraphId && list.some((graph) => graph.id === preferredGraphId)) {
-            return preferredGraphId;
-          }
-          // 2. Если нужно сохранить выбор и текущий граф существует - используем его
-          if (preserveSelection && currentActiveId && list.some((graph) => graph.id === currentActiveId)) {
-            return currentActiveId;
-          }
-          // 3. Если нужно принудительно выбрать основной граф, делаем это до восстановления из localStorage
-          if (preferDefault) {
-            const defaultGraph = list.find((graph) => graph.isDefault);
-            if (defaultGraph) {
-              return defaultGraph.id;
-            }
-          }
-          // 4. Пытаемся восстановить из localStorage (только если не preserveSelection и не запрошен основной граф)
-          if (!preserveSelection && !preferDefault && typeof window !== 'undefined') {
-            const savedGraphId = localStorage.getItem(STORAGE_KEY_ACTIVE_GRAPH_ID);
-            if (savedGraphId && list.some((graph) => graph.id === savedGraphId)) {
-              return savedGraphId;
-            }
-          }
-          // 5. По умолчанию выбираем основной граф (isDefault), если его нет - первый в списке
-          // Это гарантирует, что при первом заходе всегда будет выбран граф
-          const defaultGraph = list.find((graph) => graph.isDefault);
-          if (defaultGraph) {
-            return defaultGraph.id;
-          }
-          // Если основного графа нет, выбираем первый доступный
-          return list[0]?.id ?? null;
-        })();
-
-        if (nextActiveId) {
-          updateActiveGraph(nextActiveId);
-        } else {
-          updateActiveGraph(null, { loadSnapshot: false });
-        }
-      } catch (error) {
-        console.error('Не удалось обновить список графов', error);
-        const fallbackMessage = 'Не удалось загрузить список графов.';
-        let message = fallbackMessage;
-
-        if (error instanceof TypeError) {
-          message =
-            'Не удалось подключиться к серверу графа. Запустите "npm run server" или используйте "npm run dev:full".';
-        } else if (error instanceof Error && error.message) {
-          message = error.message;
-        }
-
-        setGraphListError(message);
-
-        // При создании нового графа (preferredGraphId установлен) не переключаться на локальный автоматически
-        // Сохраняем текущий выбор, если он был указан явно
-        const currentActiveId = activeGraphIdRef.current;
-        const shouldPreserveSelection = preferredGraphId !== null && preferredGraphId !== undefined;
-
-        // Всегда переключаемся на локальный граф при ошибке, если нет активного графа или если не сохраняем выбор
-        const shouldSwitchToLocal = !currentActiveId || (!shouldPreserveSelection && currentActiveId !== LOCAL_GRAPH_ID);
-
-        if (shouldPreserveSelection && preferredGraphId && currentActiveId === preferredGraphId && !shouldSwitchToLocal) {
-          // Сохраняем выбранный граф, даже если список не загрузился
-          // Пользователь может попробовать загрузить его вручную
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'error',
-            message: 'Нет связи с сервером. Изменения не сохранятся.'
-          });
-          // Не переключаемся на локальный граф, сохраняем текущий выбор
-        } else {
-          // Переключаемся на локальный граф при ошибке загрузки списка
-          const fallbackGraphs = [LOCAL_GRAPH_SUMMARY];
-          graphsRef.current = fallbackGraphs;
-          setGraphs(fallbackGraphs);
-          loadedGraphsRef.current = new Set([LOCAL_GRAPH_ID]);
-
-          // Очищаем уведомление о недоступности графа, так как переключаемся на локальный
-          if (adminNotice?.message === GRAPH_UNAVAILABLE_MESSAGE) {
-            setAdminNotice(null);
-          }
-
-          if (activeGraphIdRef.current !== LOCAL_GRAPH_ID) {
-            updateActiveGraph(LOCAL_GRAPH_ID, { loadSnapshot: false });
-          }
-
-          applySnapshot(buildLocalSnapshot());
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'error',
-            message: 'Нет связи с сервером. Изменения не сохранятся.'
-          });
-        }
-      } finally {
-        setIsGraphsLoading(false);
-      }
-    },
-    [updateActiveGraph, applySnapshot]
-  );
+  const handleGraphUnavailable = useCallback(() => {
+    showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
+  }, [showAdminNotice]);
 
   useEffect(() => {
-    // При первой загрузке и обновлении страницы автоматически выбираем основной граф
-    void refreshGraphs(null, { preserveSelection: false, preferDefault: true });
+    void loadGraphsList(null, {
+      preserveSelection: false,
+      preferDefault: true,
+      applySnapshot,
+      onGraphUnavailable: handleGraphUnavailable
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -905,7 +597,11 @@ function AppContent() {
       return;
     }
 
-    void loadSnapshotRef.current(graphId, { withOverlay: false });
+    void loadSnapshotRef.current(graphId, {
+      applySnapshot,
+      withOverlay: false,
+      onGraphUnavailable: handleGraphUnavailable
+    });
     setGraphRenderEpoch((prev) => prev + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeMode]);
@@ -916,8 +612,12 @@ function AppContent() {
       return;
     }
 
-    void loadSnapshot(graphId, { withOverlay: false });
-  }, [loadSnapshot]);
+    void loadSnapshot(graphId, {
+      applySnapshot,
+      withOverlay: false,
+      onGraphUnavailable: handleGraphUnavailable
+    });
+  }, [applySnapshot, handleGraphUnavailable, loadSnapshot]);
 
   const markGraphDirty = useCallback(() => {
     hasPendingPersistRef.current = true;
@@ -1315,23 +1015,12 @@ function AppContent() {
     }
 
     const controller = new AbortController();
-    let cancelled = false;
 
-    setSyncStatus((prev) => {
-      if (prev?.state === 'error') {
-        return { state: 'saving', message: 'Повторяем синхронизацию...' };
-      }
-      return { state: 'saving', message: 'Сохраняем изменения в хранилище...' };
-    });
-
-    const graphId = activeGraphId;
-    const exportTimestamp = new Date().toISOString();
-
-    persistGraphSnapshot(
-      graphId,
+    void persistGraphSnapshot(
+      activeGraphId,
       {
         version: GRAPH_SNAPSHOT_VERSION,
-        exportedAt: exportTimestamp,
+        exportedAt: new Date().toISOString(),
         modules: moduleData,
         domains: domainData,
         artifacts: artifactData,
@@ -1339,37 +1028,10 @@ function AppContent() {
         initiatives: initiativeData,
         layout: { nodes: constrainedLayout }
       },
-      controller.signal
-    )
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        setSyncStatus({
-          state: 'idle',
-          message: `Сохранено ${new Date().toLocaleTimeString()}`
-        });
-        setGraphs((prev) =>
-          prev.map((graph) =>
-            graph.id === graphId ? { ...graph, updatedAt: exportTimestamp } : graph
-          )
-        );
-      })
-      .catch((error) => {
-        if (cancelled || controller.signal.aborted) {
-          return;
-        }
-        console.error('Не удалось сохранить граф', error);
-        hasPendingPersistRef.current = true;
-        setSyncStatus({
-          state: 'error',
-          message:
-            error instanceof Error ? error.message : 'Не удалось сохранить данные.'
-        });
-      });
+      { signal: controller.signal }
+    );
 
     return () => {
-      cancelled = true;
       controller.abort();
     };
   }, [
@@ -1380,7 +1042,8 @@ function AppContent() {
     moduleData,
     isSyncAvailable,
     layoutPositions,
-    activeGraphId
+    activeGraphId,
+    persistGraphSnapshot
   ]);
 
 
@@ -3352,7 +3015,11 @@ function AppContent() {
       setGraphSourceIdDraft(null);
       setGraphCopyOptions(new Set(['domains', 'modules', 'artifacts', 'experts', 'initiatives']));
       setIsCreatePanelOpen(false);
-      await refreshGraphs(created.id, { preserveSelection: false });
+      await loadGraphsList(created.id, {
+        preserveSelection: false,
+        applySnapshot,
+        onGraphUnavailable: handleGraphUnavailable
+      });
       showAdminNotice('success', `Граф «${created.name}» создан.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось создать граф.';
@@ -3361,13 +3028,15 @@ function AppContent() {
       setIsGraphActionInProgress(false);
     }
   }, [
+    applySnapshot,
     graphNameDraft,
     graphSourceIdDraft,
     graphCopyOptions,
     isGraphActionInProgress,
-    refreshGraphs,
+    loadGraphsList,
     showAdminNotice,
-    graphs
+    graphs,
+    handleGraphUnavailable
   ]);
 
   const handleDeleteGraph = useCallback(
@@ -3399,7 +3068,11 @@ function AppContent() {
       setGraphActionStatus(null);
       try {
         await deleteGraphRequest(graphId);
-        await refreshGraphs(null, { preserveSelection: true });
+        await loadGraphsList(null, {
+          preserveSelection: true,
+          applySnapshot,
+          onGraphUnavailable: handleGraphUnavailable
+        });
         setGraphActionStatus({ type: 'success', message: `Граф «${target.name}» удалён.` });
         showAdminNotice('success', `Граф «${target.name}» удалён.`);
       } catch (error) {
@@ -3409,7 +3082,14 @@ function AppContent() {
         setIsGraphActionInProgress(false);
       }
     },
-    [graphs, isGraphActionInProgress, refreshGraphs, showAdminNotice]
+    [
+      applySnapshot,
+      graphs,
+      handleGraphUnavailable,
+      isGraphActionInProgress,
+      loadGraphsList,
+      showAdminNotice
+    ]
   );
 
   const handleCreateGraph = useCallback(() => {
@@ -3419,12 +3099,15 @@ function AppContent() {
   const handleGraphSelect = useCallback(
     (graphId: string | null) => {
       if (graphId) {
-        updateActiveGraph(graphId);
+        updateActiveGraph(graphId, {
+          applySnapshot,
+          onGraphUnavailable: handleGraphUnavailable
+        });
       } else {
-        updateActiveGraph(null, { loadSnapshot: false });
+        updateActiveGraph(null, { loadSnapshot: false, applySnapshot });
       }
     },
-    [updateActiveGraph]
+    [applySnapshot, handleGraphUnavailable, updateActiveGraph]
   );
 
   const shouldShowInitialLoader =
