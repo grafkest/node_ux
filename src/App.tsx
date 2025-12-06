@@ -1,19 +1,12 @@
-import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
 
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import DomainTree from './components/DomainTree';
 import AdminPanel, {
@@ -88,21 +81,22 @@ import {
 } from './context/GraphDataContext';
 import { FilterProvider, useFilters } from './context/FilterContext';
 import { ThemeMode, UIProvider, useUI } from './context/UIContext';
-import Login from './components/Login';
-import { GraphContainer } from './features/graph/GraphContainer';
-import { ExpertsContainer } from './features/experts/ExpertsContainer';
-import { InitiativesContainer } from './features/initiatives/InitiativesContainer';
-import { EmployeeTasksContainer } from './features/employeeTasks/EmployeeTasksContainer';
-import { AdminContainer } from './features/admin/AdminContainer';
+import { GraphContainer, type GraphContainerProps } from './features/graph/GraphContainer';
+import { ExpertsContainer, type ExpertsContainerProps } from './features/experts/ExpertsContainer';
+import {
+  InitiativesContainer,
+  type InitiativesContainerProps
+} from './features/initiatives/InitiativesContainer';
+import {
+  EmployeeTasksContainer,
+  type EmployeeTasksContainerProps
+} from './features/employeeTasks/EmployeeTasksContainer';
+import { AdminContainer, type AdminContainerProps } from './features/admin/AdminContainer';
 import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
 const MAX_LAYOUT_SPAN = 1800;
-
-const StatsDashboard = lazy(async () => ({
-  default: (await import('./components/StatsDashboard')).default
-}));
 
 const viewTabs = [
   { label: 'Связи', value: 'graph' },
@@ -120,6 +114,47 @@ type AdminNotice = {
   message: string;
 };
 
+const VIEW_TO_PATH: Record<ViewMode, string> = {
+  graph: '/graph',
+  stats: '/stats',
+  experts: '/experts',
+  initiatives: '/initiatives',
+  'employee-tasks': '/tasks',
+  admin: '/admin'
+};
+
+const PATH_TO_VIEW: Record<string, ViewMode> = {
+  '': 'graph',
+  graph: 'graph',
+  stats: 'stats',
+  experts: 'experts',
+  initiatives: 'initiatives',
+  tasks: 'employee-tasks',
+  admin: 'admin'
+};
+
+const getViewModeFromPath = (pathname: string): ViewMode => {
+  const [_, maybeView] = pathname.split('/');
+  return PATH_TO_VIEW[maybeView as keyof typeof PATH_TO_VIEW] ?? 'graph';
+};
+
+type StatsPageProps = {
+  pageVariants: Variants;
+  modules: ModuleNode[];
+  domains: DomainNode[];
+  artifacts: ArtifactNode[];
+  reuseHistory: typeof reuseIndexHistory;
+};
+
+export type AppOutletContext = {
+  graphPageProps: GraphContainerProps;
+  statsPageProps: StatsPageProps;
+  expertsPageProps: ExpertsContainerProps;
+  initiativesPageProps: InitiativesContainerProps;
+  employeeTasksPageProps: EmployeeTasksContainerProps;
+  adminPageProps: AdminContainerProps;
+};
+
 const GRAPH_UNAVAILABLE_MESSAGE =
   'Выбранный граф недоступен. Обновите список графов и попробуйте снова.';
 
@@ -128,6 +163,8 @@ const isAnalyticsPanelEnabled =
 
 function AppContent() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     graphs,
     activeGraphId,
@@ -215,9 +252,12 @@ function AppContent() {
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
-  const [viewMode, setViewMode] = useState<ViewMode>('graph');
+  const viewMode = useMemo(() => getViewModeFromPath(location.pathname), [location.pathname]);
+  const navigateToView = useCallback(
+    (view: ViewMode) => navigate(VIEW_TO_PATH[view] ?? VIEW_TO_PATH.graph),
+    [navigate]
+  );
   const highlightedDomainId = selectedNode?.type === 'domain' ? selectedNode.id : null;
-  const [statsActivated, setStatsActivated] = useState(() => viewMode === 'stats');
   const moduleDraftPrefillIdRef = useRef(0);
   const [moduleDraftPrefill, setModuleDraftPrefill] = useState<ModuleDraftPrefillRequest | null>(null);
   const handleModuleDraftPrefillApplied = useCallback(() => {
@@ -757,7 +797,7 @@ function AppContent() {
         return { ...current, status: 'converted', lastUpdated: new Date().toISOString() };
       });
 
-      setViewMode('admin');
+      navigateToView('admin');
       showAdminNotice(
         'success',
         `Команда инициативы «${initiative.name}» передана в черновик модуля.`
@@ -768,7 +808,7 @@ function AppContent() {
       expertProfiles,
       moduleData,
       patchInitiative,
-      setViewMode,
+      navigateToView,
       showAdminNotice,
       setModuleDraftPrefill
     ]
@@ -1752,7 +1792,7 @@ function AppContent() {
       if (createdModule) {
         setSelectedNode({ ...createdModule, type: 'module' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       if (createdModule) {
         showAdminNotice('success', `Модуль «${createdModule.name}» создан.`);
       }
@@ -1760,6 +1800,7 @@ function AppContent() {
     [
       defaultDomainId,
       attachableDomainIdSet,
+      navigateToView,
       markGraphDirty,
       moduleData,
       selectedNode,
@@ -1973,7 +2014,7 @@ function AppContent() {
       if (!draft.isCatalogRoot) {
         setSelectedNode({ ...newDomain, type: 'domain' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice(
         'success',
         `${draft.isCatalogRoot ? 'Корневой каталог' : 'Домен'} «${normalizedName}» создан.`
@@ -2222,7 +2263,7 @@ function AppContent() {
         next.add(domainId);
         return next;
       });
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice('success', `Артефакт «${normalizedName}» создан.`);
     },
     [
@@ -3014,7 +3055,7 @@ function AppContent() {
   }, [themeMode]);
 
   if (!user) {
-    return <Login />;
+    return <Navigate to="/login" replace />;
   }
 
   const pageVariants = {
@@ -3034,11 +3075,164 @@ function AppContent() {
     }
   };
 
+  const graphPageProps: GraphContainerProps = {
+    isActive: true,
+    pageVariants,
+    sidebarRef,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    onToggleDomainTree: () => setIsDomainTreeOpen((prev) => !prev),
+    areFiltersOpen,
+    onToggleFilters: () => setAreFiltersOpen((prev) => !prev),
+    onToggleDomain: handleDomainToggle,
+    domainDescendants,
+    onSearchChange: handleSearchChange,
+    allStatuses,
+    onStatusToggle: (status) => {
+      setSelectedNode(null);
+      setStatusFilters((prev) => {
+        const next = new Set(prev);
+        if (next.has(status)) {
+          next.delete(status);
+        } else {
+          next.add(status);
+        }
+        return next;
+      });
+    },
+    products,
+    onProductFilterChange: (nextProducts) => {
+      setSelectedNode(null);
+      setProductFilter(nextProducts);
+    },
+    companies,
+    onCompanyChange: (nextCompany) => {
+      setSelectedNode(null);
+      setCompanyFilter(nextCompany);
+    },
+    onToggleConnections: (value) => setShowAllConnections(value),
+    graphModules,
+    graphDomains,
+    graphArtifacts,
+    graphInitiatives,
+    filteredLinks,
+    graphVersion: `${activeGraphId ?? 'local'}:${graphRenderEpoch}`,
+    onSelectNode: handleSelectNode,
+    selectedNode,
+    visibleDomainIds: relevantDomainIds,
+    onLayoutChange: handleLayoutChange,
+    shouldShowAnalytics,
+    filteredModules,
+    domainNameMap,
+    moduleNameMap,
+    artifactNameMap,
+    onNavigate: handleNavigate
+  };
+
+  const statsPageProps: StatsPageProps = {
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    reuseHistory: reuseIndexHistory
+  };
+
+  const expertsPageProps: ExpertsContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    modules: moduleData,
+    moduleNameMap,
+    moduleDomainMap,
+    domainNameMap,
+    initiatives: initiativeData,
+    onUpdateExpertSkills: handleUpdateExpertSkills,
+    onUpdateExpertSoftSkills: handleUpdateExpertSoftSkills
+  };
+
+  const initiativesPageProps: InitiativesContainerProps = {
+    isActive: true,
+    pageVariants,
+    initiatives: initiativeData,
+    experts: expertProfiles,
+    domains: domainData,
+    modules: moduleData,
+    domainNameMap,
+    employeeTasks,
+    onTogglePin: handleToggleInitiativePin,
+    onAddRisk: handleAddInitiativeRisk,
+    onRemoveRisk: handleRemoveInitiativeRisk,
+    onStatusChange: handleInitiativeStatusChange,
+    onExport: handleInitiativeExport,
+    onCreateInitiative: handlePlannerCreateInitiative,
+    onUpdateInitiative: handlePlannerUpdateInitiative
+  };
+
+  const employeeTasksPageProps: EmployeeTasksContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    tasks: employeeTasks,
+    onTasksChange: setEmployeeTasks
+  };
+
+  const adminPageProps: AdminContainerProps = {
+    isActive: true,
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    employeeTasks,
+    moduleDraftPrefill,
+    onModuleDraftPrefillApplied: handleModuleDraftPrefillApplied,
+    onCreateModule: handleCreateModule,
+    onUpdateModule: handleUpdateModule,
+    onDeleteModule: handleDeleteModule,
+    onCreateDomain: handleCreateDomain,
+    onUpdateDomain: handleUpdateDomain,
+    onDeleteDomain: handleDeleteDomain,
+    onCreateArtifact: handleCreateArtifact,
+    onUpdateArtifact: handleUpdateArtifact,
+    onDeleteArtifact: handleDeleteArtifact,
+    onCreateExpert: handleCreateExpert,
+    onUpdateExpert: handleUpdateExpert,
+    onDeleteExpert: handleDeleteExpert,
+    onUpdateEmployeeTasks: setEmployeeTasks,
+    users,
+    onCreateUser: handleCreateUser,
+    onUpdateUser: handleUpdateUser,
+    onDeleteUser: handleDeleteUser,
+    currentUser: user,
+    graphs,
+    activeGraphId,
+    onGraphSelect: handleGraphSelect,
+    onGraphCreate: handleCreateGraph,
+    onGraphDelete: activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined,
+    isGraphListLoading: isGraphsLoading,
+    syncStatus,
+    layout: layoutSnapshot,
+    isSyncAvailable,
+    onImport: handleImportGraph,
+    onImportFromGraph: handleImportFromExistingGraph,
+    onRetryLoad: handleRetryLoadSnapshot,
+    isReloading: isReloadingSnapshot
+  };
+
+  const outletContext: AppOutletContext = {
+    graphPageProps,
+    statsPageProps,
+    expertsPageProps,
+    initiativesPageProps,
+    employeeTasksPageProps,
+    adminPageProps
+  };
+
   return (
     <ThemeContainer preset={themePreset} themeKey={themeMode}>
       <LayoutShell
-        currentView={viewMode}
-        onViewChange={setViewMode}
         headerTitle={headerTitle}
         headerDescription={headerDescription}
         themeMode={themeMode}
@@ -3118,156 +3312,7 @@ function AppContent() {
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <GraphContainer
-              isActive={isGraphActive}
-              pageVariants={pageVariants}
-              sidebarRef={sidebarRef}
-              sidebarMaxHeight={sidebarMaxHeight}
-              isDomainTreeOpen={isDomainTreeOpen}
-              onToggleDomainTree={() => setIsDomainTreeOpen((prev) => !prev)}
-              areFiltersOpen={areFiltersOpen}
-              onToggleFilters={() => setAreFiltersOpen((prev) => !prev)}
-              onToggleDomain={handleDomainToggle}
-              domainDescendants={domainDescendants}
-              onSearchChange={handleSearchChange}
-              allStatuses={allStatuses}
-              onStatusToggle={(status) => {
-                setSelectedNode(null);
-                setStatusFilters((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(status)) {
-                    next.delete(status);
-                  } else {
-                    next.add(status);
-                  }
-                  return next;
-                });
-              }}
-              products={products}
-              onProductFilterChange={(nextProducts) => {
-                setSelectedNode(null);
-                setProductFilter(nextProducts);
-              }}
-              companies={companies}
-              onCompanyChange={(nextCompany) => {
-                setSelectedNode(null);
-                setCompanyFilter(nextCompany);
-              }}
-              onToggleConnections={(value) => setShowAllConnections(value)}
-              graphModules={graphModules}
-              graphDomains={graphDomains}
-              graphArtifacts={graphArtifacts}
-              graphInitiatives={graphInitiatives}
-              filteredLinks={filteredLinks}
-              graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
-              onSelectNode={handleSelectNode}
-              selectedNode={selectedNode}
-              visibleDomainIds={relevantDomainIds}
-              onLayoutChange={handleLayoutChange}
-              shouldShowAnalytics={shouldShowAnalytics}
-              filteredModules={filteredModules}
-              domainNameMap={domainNameMap}
-              moduleNameMap={moduleNameMap}
-              artifactNameMap={artifactNameMap}
-              onNavigate={handleNavigate}
-            />
-            {(statsActivated || isStatsActive) && (
-              <motion.main
-                className={styles.statsMain}
-                initial="hidden"
-                animate={isStatsActive ? 'visible' : 'hidden'}
-                variants={pageVariants}
-              >
-                <Suspense fallback={<Loader size="m" />}>
-                  <StatsDashboard
-                    modules={moduleData}
-                    domains={domainData}
-                    artifacts={artifactData}
-                    reuseHistory={reuseIndexHistory}
-                  />
-                </Suspense>
-              </motion.main>
-            )}
-            <ExpertsContainer
-              isActive={isExpertsActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              modules={moduleData}
-              moduleNameMap={moduleNameMap}
-              moduleDomainMap={moduleDomainMap}
-              domainNameMap={domainNameMap}
-              initiatives={initiativeData}
-              onUpdateExpertSkills={handleUpdateExpertSkills}
-              onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
-            />
-            <InitiativesContainer
-              isActive={isInitiativesActive}
-              pageVariants={pageVariants}
-              initiatives={initiativeData}
-              experts={expertProfiles}
-              domains={domainData}
-              modules={moduleData}
-              domainNameMap={domainNameMap}
-              employeeTasks={employeeTasks}
-              onTogglePin={handleToggleInitiativePin}
-              onAddRisk={handleAddInitiativeRisk}
-              onRemoveRisk={handleRemoveInitiativeRisk}
-              onStatusChange={handleInitiativeStatusChange}
-              onExport={handleInitiativeExport}
-              onCreateInitiative={handlePlannerCreateInitiative}
-              onUpdateInitiative={handlePlannerUpdateInitiative}
-            />
-            <EmployeeTasksContainer
-              isActive={isEmployeeTasksActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              tasks={employeeTasks}
-              onTasksChange={setEmployeeTasks}
-            />
-            <AdminContainer
-              isActive={isAdminActive}
-              pageVariants={pageVariants}
-              modules={moduleData}
-              domains={domainData}
-              artifacts={artifactData}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              employeeTasks={employeeTasks}
-              moduleDraftPrefill={moduleDraftPrefill}
-              onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
-              onCreateModule={handleCreateModule}
-              onUpdateModule={handleUpdateModule}
-              onDeleteModule={handleDeleteModule}
-              onCreateDomain={handleCreateDomain}
-              onUpdateDomain={handleUpdateDomain}
-              onDeleteDomain={handleDeleteDomain}
-              onCreateArtifact={handleCreateArtifact}
-              onUpdateArtifact={handleUpdateArtifact}
-              onDeleteArtifact={handleDeleteArtifact}
-              onCreateExpert={handleCreateExpert}
-              onUpdateExpert={handleUpdateExpert}
-              onDeleteExpert={handleDeleteExpert}
-              onUpdateEmployeeTasks={setEmployeeTasks}
-              users={users}
-              onCreateUser={handleCreateUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-              currentUser={user}
-              graphs={graphs}
-              activeGraphId={activeGraphId}
-              onGraphSelect={handleGraphSelect}
-              onGraphCreate={handleCreateGraph}
-              onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
-              isGraphListLoading={isGraphsLoading}
-              syncStatus={syncStatus}
-              layout={layoutSnapshot}
-              isSyncAvailable={isSyncAvailable}
-              onImport={handleImportGraph}
-              onImportFromGraph={handleImportFromExistingGraph}
-              onRetryLoad={handleRetryLoadSnapshot}
-              isReloading={isReloadingSnapshot}
-            />
+            <Outlet context={outletContext} />
           </>
         )}
       </LayoutShell>

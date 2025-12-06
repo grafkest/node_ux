@@ -18,14 +18,13 @@ import { IconArrowRight } from '@consta/icons/IconArrowRight';
 import { IconExit } from '@consta/icons/IconExit';
 import type { GraphSummary } from '../types/graph';
 import type { User } from '../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 import styles from './LayoutShell.module.css';
 
 type ViewMode = 'graph' | 'stats' | 'experts' | 'initiatives' | 'employee-tasks' | 'admin';
 type ThemeMode = 'light' | 'dark';
 
 interface LayoutShellProps {
-  currentView: ViewMode;
-  onViewChange: (view: ViewMode) => void;
   headerTitle: string;
   headerDescription?: string;
   headerActions?: React.ReactNode;
@@ -49,13 +48,14 @@ export const MENU_ITEMS: Array<{
   id: ViewMode;
   label: string;
   icon: IconComponent;
+  path: string;
 }> = [
-    { id: 'graph', label: 'Граф', icon: IconNodes },
-    { id: 'stats', label: 'Статистика', icon: IconLineAndBarChart },
-    { id: 'experts', label: 'Экспертиза', icon: IconUser },
-    { id: 'initiatives', label: 'Инициативы', icon: IconFlagFilled },
-    { id: 'employee-tasks', label: 'Задачи', icon: IconCheck },
-    { id: 'admin', label: 'Администрирование', icon: IconSettings },
+    { id: 'graph', label: 'Граф', icon: IconNodes, path: '/graph' },
+    { id: 'stats', label: 'Статистика', icon: IconLineAndBarChart, path: '/stats' },
+    { id: 'experts', label: 'Экспертиза', icon: IconUser, path: '/experts' },
+    { id: 'initiatives', label: 'Инициативы', icon: IconFlagFilled, path: '/initiatives' },
+    { id: 'employee-tasks', label: 'Задачи', icon: IconCheck, path: '/tasks' },
+    { id: 'admin', label: 'Администрирование', icon: IconSettings, path: '/admin' },
   ];
 
 const SIDEBAR_WIDTH = 280;
@@ -63,8 +63,6 @@ const SIDEBAR_WIDTH_COLLAPSED = 80;
 const MOBILE_BREAKPOINT = 768;
 
 export const LayoutShell: React.FC<LayoutShellProps & { menuItems?: typeof MENU_ITEMS }> = ({
-  currentView,
-  onViewChange,
   headerTitle,
   headerDescription,
   headerActions,
@@ -103,11 +101,6 @@ export const LayoutShell: React.FC<LayoutShellProps & { menuItems?: typeof MENU_
       mediaQuery.removeEventListener('change', updateSidebarOffset);
     };
   }, [isCollapsed]);
-
-  const handleViewChange = (view: ViewMode) => {
-    onViewChange(view);
-    setIsMobileMenuOpen(false);
-  };
 
   const graphsOptions = useMemo(
     () =>
@@ -191,19 +184,25 @@ export const LayoutShell: React.FC<LayoutShellProps & { menuItems?: typeof MENU_
 
         <nav className={styles.sidebarContent}>
           {menuItems.map((item) => {
-            const isActive = currentView === item.id;
             return (
-              <Button
+              <NavLink
                 key={item.id}
-                view={isActive ? 'primary' : 'ghost'}
-                size="m"
-                width="full"
-                iconLeft={item.icon}
-                label={!isCollapsed ? item.label : undefined}
-                onlyIcon={isCollapsed}
-                className={styles.menuButton}
-                onClick={() => handleViewChange(item.id)}
-              />
+                to={item.path}
+                className={styles.menuLink}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <Button
+                    view={isActive ? 'primary' : 'ghost'}
+                    size="m"
+                    width="full"
+                    iconLeft={item.icon}
+                    label={!isCollapsed ? item.label : undefined}
+                    onlyIcon={isCollapsed}
+                    className={styles.menuButton}
+                  />
+                )}
+              </NavLink>
             );
           })}
         </nav>
