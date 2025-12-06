@@ -1402,14 +1402,14 @@ function App() {
   const matchesModuleFilters = useCallback(
     (module: ModuleNode) => {
       const matchesDomain =
-        selectedDomains.size === 0 ||
+        selectedDomains.size > 0 &&
         module.domains.some((domainId) => selectedDomains.has(domainId));
       const searchableText = moduleSearchIndex[module.id] ?? '';
       const matchesSearch =
         normalizedSearch.length === 0 || searchableText.includes(normalizedSearch);
       const matchesStatus = statusFilters.has(module.status);
       const matchesProduct =
-        productFilter.length === 0 || productFilter.includes(module.productName);
+        productFilter.length > 0 && productFilter.includes(module.productName);
       const matchesCompany =
         !companyFilter ||
         module.userStats.companies.some((company) => company.name === companyFilter);
