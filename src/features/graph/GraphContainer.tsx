@@ -12,7 +12,8 @@ import styles from '../../App.module.css';
 import type { ArtifactNode, DomainNode, GraphLink, Initiative, ModuleNode } from '../../data';
 import type { GraphLayoutNodePosition } from '../../types/graph';
 import type { ModuleStatus } from '../../types/module';
-import { useGraph } from '../../context/GraphContext';
+import { useGraphData } from '../../context/GraphDataContext';
+import { useFilters } from '../../context/FilterContext';
 
 export type GraphContainerProps = {
   isActive: boolean;
@@ -87,18 +88,15 @@ export function GraphContainer({
   artifactNameMap,
   onNavigate
 }: GraphContainerProps) {
+  const { domainData, layoutPositions, layoutNormalizationRequest, expertProfiles } = useGraphData();
   const {
-    domainData,
     selectedDomains,
     search,
     statusFilters,
     productFilter,
     companyFilter,
-    showAllConnections,
-    layoutPositions,
-    layoutNormalizationRequest,
-    expertProfiles
-  } = useGraph();
+    showAllConnections
+  } = useFilters();
   return (
     <motion.main
       className={styles.main}
