@@ -1,23 +1,12 @@
-import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
-
-// ... (lines 2-3500 remain unchanged, but I can't skip them in replace_file_content unless I target specific blocks)
-// I will target the import line and the variants definition separately.
 
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import DomainTree from './components/DomainTree';
 import AdminPanel, {
@@ -30,29 +19,19 @@ import AdminPanel, {
 } from './components/AdminPanel';
 import FiltersPanel from './components/FiltersPanel';
 import {
-  GRAPH_SNAPSHOT_VERSION,
   type GraphDataScope,
   type GraphLayoutNodePosition,
   type GraphLayoutSnapshot,
-  type GraphSnapshotPayload,
-  type GraphSummary,
-  type GraphSyncStatus
+  type GraphSnapshotPayload
 } from './types/graph';
 import {
   createGraph as createGraphRequest,
   deleteGraph as deleteGraphRequest,
-  fetchGraphSnapshot,
-  fetchGraphSummaries,
-  importGraphFromSource,
-  persistGraphSnapshot
+  importGraphFromSource
 } from './services/graphStorage';
 import GraphView, { type GraphNode } from './components/GraphView';
 import NodeDetails from './components/NodeDetails';
 import {
-  artifacts as initialArtifacts,
-  domainTree as initialDomainTree,
-  experts as initialExperts,
-  initiatives as initialInitiatives,
   modules as initialModules,
   reuseIndexHistory,
   type ArtifactNode,
@@ -91,47 +70,27 @@ import { loadStoredTasks, persistStoredTasks } from './utils/employeeTasks';
 import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import { useAuth } from './context/AuthContext';
-import Login from './components/Login';
-import { GraphContainer } from './features/graph/GraphContainer';
-import { ExpertsContainer } from './features/experts/ExpertsContainer';
-import { InitiativesContainer } from './features/initiatives/InitiativesContainer';
-import { EmployeeTasksContainer } from './features/employeeTasks/EmployeeTasksContainer';
-import { AdminContainer } from './features/admin/AdminContainer';
+import {
+  GraphDataProvider,
+  buildDefaultGraphCopyOptions,
+  buildLocalSnapshot,
+  useGraphData,
+  LOCAL_GRAPH_ID,
+  LOCAL_GRAPH_SUMMARY,
+  STORAGE_KEY_ACTIVE_GRAPH_ID
+} from './context/GraphDataContext';
+import { FilterProvider, useFilters } from './context/FilterContext';
+import { ThemeMode, UIProvider, useUI } from './context/UIContext';
+import type { GraphContainerProps } from './features/graph/GraphContainer';
+import type { ExpertsContainerProps } from './features/experts/ExpertsContainer';
+import type { InitiativesContainerProps } from './features/initiatives/InitiativesContainer';
+import type { EmployeeTasksContainerProps } from './features/employeeTasks/EmployeeTasksContainer';
+import type { AdminContainerProps } from './features/admin/AdminContainer';
 import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
 const MAX_LAYOUT_SPAN = 1800;
-const buildDefaultGraphCopyOptions = () =>
-  new Set<GraphDataScope>(['domains', 'modules', 'artifacts', 'experts', 'initiatives']);
-
-const LOCAL_GRAPH_ID = 'local-graph';
-const LOCAL_GRAPH_NAME = 'Локальные данные';
-const LOCAL_GRAPH_SUMMARY: GraphSummary = {
-  id: LOCAL_GRAPH_ID,
-  name: LOCAL_GRAPH_NAME,
-  isDefault: true,
-  createdAt: '1970-01-01T00:00:00.000Z'
-};
-
-const STORAGE_KEY_ACTIVE_GRAPH_ID = 'nedra-active-graph-id';
-
-function buildLocalSnapshot(): GraphSnapshotPayload {
-  return {
-    version: GRAPH_SNAPSHOT_VERSION,
-    exportedAt: undefined,
-    domains: initialDomainTree,
-    modules: initialModules,
-    artifacts: initialArtifacts,
-    experts: initialExperts,
-    initiatives: initialInitiatives,
-    layout: undefined
-  };
-}
-
-const StatsDashboard = lazy(async () => ({
-  default: (await import('./components/StatsDashboard')).default
-}));
 
 const viewTabs = [
   { label: 'Связи', value: 'graph' },
@@ -143,12 +102,51 @@ const viewTabs = [
 ] as const;
 
 type ViewMode = (typeof viewTabs)[number]['value'];
-type ThemeMode = 'light' | 'dark';
-
 type AdminNotice = {
   id: number;
   type: 'success' | 'error';
   message: string;
+};
+
+const VIEW_TO_PATH: Record<ViewMode, string> = {
+  graph: '/graph',
+  stats: '/stats',
+  experts: '/experts',
+  initiatives: '/initiatives',
+  'employee-tasks': '/tasks',
+  admin: '/admin'
+};
+
+const PATH_TO_VIEW: Record<string, ViewMode> = {
+  '': 'graph',
+  graph: 'graph',
+  stats: 'stats',
+  experts: 'experts',
+  initiatives: 'initiatives',
+  tasks: 'employee-tasks',
+  admin: 'admin'
+};
+
+const getViewModeFromPath = (pathname: string): ViewMode => {
+  const [_, maybeView] = pathname.split('/');
+  return PATH_TO_VIEW[maybeView as keyof typeof PATH_TO_VIEW] ?? 'graph';
+};
+
+type StatsPageProps = {
+  pageVariants: Variants;
+  modules: ModuleNode[];
+  domains: DomainNode[];
+  artifacts: ArtifactNode[];
+  reuseHistory: typeof reuseIndexHistory;
+};
+
+export type AppOutletContext = {
+  graphPageProps: GraphContainerProps;
+  statsPageProps: StatsPageProps;
+  expertsPageProps: ExpertsContainerProps;
+  initiativesPageProps: InitiativesContainerProps;
+  employeeTasksPageProps: EmployeeTasksContainerProps;
+  adminPageProps: AdminContainerProps;
 };
 
 const GRAPH_UNAVAILABLE_MESSAGE =
@@ -157,87 +155,113 @@ const GRAPH_UNAVAILABLE_MESSAGE =
 const isAnalyticsPanelEnabled =
   (import.meta.env.VITE_ENABLE_ANALYTICS_PANEL ?? 'true').toLowerCase() !== 'false';
 
-function App() {
+function AppContent() {
   const { user, logout } = useAuth();
-  const [graphs, setGraphs] = useState<GraphSummary[]>([]);
-  const graphsRef = useRef<GraphSummary[]>([]);
-  const [activeGraphId, setActiveGraphId] = useState<string | null>(null);
-  const [isGraphsLoading, setIsGraphsLoading] = useState(true);
-  const [graphListError, setGraphListError] = useState<string | null>(null);
-  const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
-  const [moduleData, setModuleDataState] = useState<ModuleNode[]>(() =>
-    recalculateReuseScores(initialModules)
-  );
-  const [artifactData, setArtifactData] = useState<ArtifactNode[]>(initialArtifacts);
-  const [initiativeData, setInitiativeData] = useState<Initiative[]>(initialInitiatives);
-  const [expertProfiles, setExpertProfiles] = useState(initialExperts);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const {
+    graphs,
+    activeGraphId,
+    activeGraphIdRef,
+    isGraphsLoading,
+    graphListError,
+    isSnapshotLoading,
+    snapshotError,
+    syncStatus,
+    isSyncAvailable,
+    isReloadingSnapshot,
+    hasLoadedSnapshotRef,
+    skipNextSyncRef,
+    hasPendingPersistRef,
+    activeSnapshotControllerRef,
+    loadSnapshotRef,
+    shouldCaptureEngineLayoutRef,
+    layoutPositions,
+    setLayoutPositions,
+    layoutNormalizationRequest,
+    setLayoutNormalizationRequest,
+    graphRenderEpoch,
+    setGraphRenderEpoch,
+    graphNameDraft,
+    setGraphNameDraft,
+    graphSourceIdDraft,
+    setGraphSourceIdDraft,
+    graphCopyOptions,
+    setGraphCopyOptions,
+    isGraphActionInProgress,
+    setIsGraphActionInProgress,
+    graphActionStatus,
+    setGraphActionStatus,
+    domainData,
+    setDomainData,
+    moduleData,
+    setModuleData,
+    artifactData,
+    setArtifactData,
+    initiativeData,
+    setInitiativeData,
+    expertProfiles,
+    setExpertProfiles,
+    loadSnapshot,
+    updateActiveGraph,
+    loadGraphsList,
+    persistGraphSnapshot
+  } = useGraphData();
+  const {
+    selectedDomains,
+    setSelectedDomains,
+    statusFilters,
+    setStatusFilters,
+    productFilter,
+    setProductFilter,
+    companyFilter,
+    setCompanyFilter,
+    showAllConnections,
+    setShowAllConnections,
+    search,
+    setSearch,
+    selectedNode,
+    setSelectedNode
+  } = useFilters();
+  const {
+    themeMode,
+    setThemeMode,
+    sidebarRef,
+    sidebarBaseHeight,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    setIsDomainTreeOpen,
+    areFiltersOpen,
+    setAreFiltersOpen,
+    adminNotice,
+    showAdminNotice,
+    dismissAdminNotice,
+    isCreatePanelOpen,
+    setIsCreatePanelOpen
+  } = useUI();
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
-  const domainDataRef = useRef(domainData);
-  const moduleDataRef = useRef(moduleData);
-  const artifactDataRef = useRef(artifactData);
-  const initiativeDataRef = useRef(initiativeData);
-  const expertProfilesRef = useRef(expertProfiles);
+  const [statsActivated, setStatsActivated] = useState(false);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
-  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(
-    () => new Set(flattenDomainTree(initialDomainTree).map((domain) => domain.id))
+  const viewMode = useMemo(() => getViewModeFromPath(location.pathname), [location.pathname]);
+  const navigateToView = useCallback(
+    (view: ViewMode) => navigate(VIEW_TO_PATH[view] ?? VIEW_TO_PATH.graph),
+    [navigate]
   );
-  const [search, setSearch] = useState('');
-  const [statusFilters, setStatusFilters] = useState<Set<ModuleStatus>>(new Set(allStatuses));
-  const [productFilter, setProductFilter] = useState<string[]>(initialProducts);
-  const [companyFilter, setCompanyFilter] = useState<string | null>(null);
-  const [showAllConnections, setShowAllConnections] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('graph');
-  const [isDomainTreeOpen, setIsDomainTreeOpen] = useState(false);
-  const [areFiltersOpen, setAreFiltersOpen] = useState(true);
-  const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarBaseHeight, setSidebarBaseHeight] = useState<number | null>(null);
-  const [adminNotice, setAdminNotice] = useState<AdminNotice | null>(null);
   const highlightedDomainId = selectedNode?.type === 'domain' ? selectedNode.id : null;
-  const [statsActivated, setStatsActivated] = useState(() => viewMode === 'stats');
-  const [isSnapshotLoading, setIsSnapshotLoading] = useState(true);
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<GraphSyncStatus | null>(null);
-  const [isSyncAvailable, setIsSyncAvailable] = useState(false);
-  const [isReloadingSnapshot, setIsReloadingSnapshot] = useState(false);
-  const hasLoadedSnapshotRef = useRef(false);
-  const skipNextSyncRef = useRef(false);
-  const hasPendingPersistRef = useRef(false);
-  const activeSnapshotControllerRef = useRef<AbortController | null>(null);
-  const activeGraphIdRef = useRef<string | null>(null);
-  const failedGraphLoadsRef = useRef(new Set<string>());
-  const updateActiveGraphRef = useRef<
-    (graphId: string | null, options?: { loadSnapshot?: boolean }) => void
-  >();
-  const loadSnapshotRef = useRef<
-    (graphId: string, options?: { withOverlay?: boolean; fallbackGraphId?: string | null }) => Promise<void>
-  >();
-  const loadedGraphsRef = useRef(new Set<string>());
-  const adminNoticeIdRef = useRef(0);
   const moduleDraftPrefillIdRef = useRef(0);
-  const shouldCaptureEngineLayoutRef = useRef(true);
   const [moduleDraftPrefill, setModuleDraftPrefill] = useState<ModuleDraftPrefillRequest | null>(null);
   const handleModuleDraftPrefillApplied = useCallback(() => {
     setModuleDraftPrefill(null);
   }, []);
-  const [layoutPositions, setLayoutPositions] = useState<Record<string, GraphLayoutNodePosition>>({});
-  const [layoutNormalizationRequest, setLayoutNormalizationRequest] = useState(0);
-  const [graphRenderEpoch, setGraphRenderEpoch] = useState(0);
   const layoutSnapshot = useMemo<GraphLayoutSnapshot>(
     () => ({ nodes: layoutPositions }),
     [layoutPositions]
   );
-  const sidebarMaxHeight = useMemo(
-    () => (sidebarBaseHeight ? sidebarBaseHeight * 2 : null),
-    [sidebarBaseHeight]
-  );
-  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 
   const visibleMenuItems = useMemo(() => {
     if (!user) return [];
@@ -249,43 +273,20 @@ function App() {
     });
   }, [user]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('app-theme');
-    if (saved === 'light') {
-      setThemeMode('light');
-      return;
-    }
-
-    if (saved !== 'light') {
-      localStorage.setItem('app-theme', 'light');
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('app-theme', themeMode);
-  }, [themeMode]);
-
   const handleSetThemeMode = useCallback((mode: ThemeMode) => {
     setThemeMode(mode);
-  }, []);
+  }, [setThemeMode]);
 
 
-  const [graphNameDraft, setGraphNameDraft] = useState('');
-  const [graphSourceIdDraft, setGraphSourceIdDraft] = useState<string | null>(null);
-  const [graphCopyOptions, setGraphCopyOptions] = useState<Set<GraphDataScope>>(
-    buildDefaultGraphCopyOptions
+  const handleGraphSourceIdChange = useCallback(
+    (value: string | null) => {
+      setGraphSourceIdDraft(value);
+      if (value === null) {
+        setGraphCopyOptions(buildDefaultGraphCopyOptions());
+      }
+    },
+    [setGraphCopyOptions, setGraphSourceIdDraft]
   );
-  const [isGraphActionInProgress, setIsGraphActionInProgress] = useState(false);
-  const [graphActionStatus, setGraphActionStatus] = useState<
-    { type: 'success' | 'error'; message: string } | null
-  >(null);
-  const handleGraphSourceIdChange = useCallback((value: string | null) => {
-    setGraphSourceIdDraft(value);
-
-    if (value === null) {
-      setGraphCopyOptions(buildDefaultGraphCopyOptions());
-    }
-  }, []);
   const handleUpdateExpertSkills = useCallback((expertId: string, skills: ExpertSkill[]) => {
     setExpertProfiles((prev) =>
       prev.map((expert) => (expert.id === expertId ? { ...expert, skills } : expert))
@@ -301,49 +302,6 @@ function App() {
   );
 
 
-  useLayoutEffect(() => {
-    const element = sidebarRef.current;
-    if (!element) {
-      return;
-    }
-
-    const measure = () => {
-      const target = sidebarRef.current;
-      if (!target) {
-        return;
-      }
-
-      if (isDomainTreeOpen) {
-        return;
-      }
-
-      if (!areFiltersOpen) {
-        return;
-      }
-
-      const height = Math.max(target.getBoundingClientRect().height, 0);
-      if (height < 1) {
-        return;
-      }
-      setSidebarBaseHeight((prev) => {
-        if (prev === null || Math.abs(prev - height) > 0.5) {
-          return height;
-        }
-
-        return prev;
-      });
-    };
-
-    measure();
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isDomainTreeOpen, areFiltersOpen]);
-
   const fetchUsers = useCallback(() => {
     if (!user || user.role !== 'admin') return;
     fetch('/api/users')
@@ -356,34 +314,6 @@ function App() {
     fetchUsers();
   }, [fetchUsers]);
 
-
-  useEffect(() => {
-    activeGraphIdRef.current = activeGraphId;
-    // Сохраняем выбранный граф в localStorage
-    if (typeof window !== 'undefined') {
-      if (activeGraphId) {
-        localStorage.setItem(STORAGE_KEY_ACTIVE_GRAPH_ID, activeGraphId);
-      } else {
-        localStorage.removeItem(STORAGE_KEY_ACTIVE_GRAPH_ID);
-      }
-    }
-  }, [activeGraphId]);
-
-  useEffect(() => {
-    graphsRef.current = graphs;
-  }, [graphs]);
-
-  const showAdminNotice = useCallback(
-    (type: AdminNotice['type'], message: string) => {
-      adminNoticeIdRef.current += 1;
-      setAdminNotice({ id: adminNoticeIdRef.current, type, message });
-    },
-    []
-  );
-
-  const dismissAdminNotice = useCallback(() => {
-    setAdminNotice(null);
-  }, []);
 
   const handleCreateUser = useCallback(
     (draft: UserDraftPayload) => {
@@ -453,41 +383,33 @@ function App() {
   const companies = useMemo(() => buildCompanyList(moduleData), [moduleData]);
 
   useEffect(() => {
+    if (statusFilters.size === 0) {
+      setStatusFilters(new Set(allStatuses));
+    }
+  }, [setStatusFilters, statusFilters.size]);
+
+  useEffect(() => {
+    if (productFilter.length === 0 && products.length > 0) {
+      setProductFilter(products);
+    }
+  }, [productFilter.length, products, setProductFilter]);
+
+  useEffect(() => {
     if (companyFilter && !companies.includes(companyFilter)) {
       setCompanyFilter(null);
     }
   }, [companyFilter, companies]);
-
-  useEffect(() => {
-    domainDataRef.current = domainData;
-  }, [domainData]);
-
-  useEffect(() => {
-    moduleDataRef.current = moduleData;
-  }, [moduleData]);
-
-  useEffect(() => {
-    artifactDataRef.current = artifactData;
-  }, [artifactData]);
-
-  useEffect(() => {
-    initiativeDataRef.current = initiativeData;
-  }, [initiativeData]);
-
-  useEffect(() => {
-    expertProfilesRef.current = expertProfiles;
-  }, [expertProfiles]);
 
   const applySnapshot = useCallback((snapshot: GraphSnapshotPayload) => {
     const scopes = new Set<GraphDataScope>(
       snapshot.scopesIncluded ?? ['domains', 'modules', 'artifacts', 'experts', 'initiatives']
     );
 
-    const currentDomains = domainDataRef.current;
-    const currentModules = moduleDataRef.current;
-    const currentArtifacts = artifactDataRef.current;
-    const currentExperts = expertProfilesRef.current;
-    const currentInitiatives = initiativeDataRef.current;
+    const currentDomains = domainData;
+    const currentModules = moduleData;
+    const currentArtifacts = artifactData;
+    const currentExperts = expertProfiles;
+    const currentInitiatives = initiativeData;
 
     const nextDomains = scopes.has('domains') ? snapshot.domains : currentDomains;
     const nextModules = scopes.has('modules') ? snapshot.modules : currentModules;
@@ -503,7 +425,7 @@ function App() {
     nextInitiatives.forEach((initiative) => activeNodeIds.add(initiative.id));
 
     setDomainData(nextDomains);
-    setModuleDataState(recalculateReuseScores(nextModules));
+    setModuleData(nextModules);
     setArtifactData(nextArtifacts);
     setInitiativeData(nextInitiatives);
     setExpertProfiles(nextExperts);
@@ -580,328 +502,43 @@ function App() {
     if (!shouldRequestLayoutNormalization) {
       hasPendingPersistRef.current = false;
     }
-  }, []);
+  }, [
+    allStatuses,
+    artifactData,
+    domainData,
+    expertProfiles,
+    hasLoadedSnapshotRef,
+    hasPendingPersistRef,
+    initiativeData,
+    moduleData,
+    setArtifactData,
+    setCompanyFilter,
+    setDomainData,
+    setExpertProfiles,
+    setGraphRenderEpoch,
+    setInitiativeData,
+    setLayoutNormalizationRequest,
+    setLayoutPositions,
+    setModuleData,
+    setProductFilter,
+    setSearch,
+    setSelectedDomains,
+    setSelectedNode,
+    setStatusFilters,
+    shouldCaptureEngineLayoutRef
+  ]);
 
-  const loadSnapshot = useCallback(
-    async (
-      graphId: string,
-      {
-        withOverlay,
-        fallbackGraphId
-      }: { withOverlay?: boolean; fallbackGraphId?: string | null } = {}
-    ) => {
-      // Защита от циклов: не пытаться загружать граф, если он уже в списке неудачных
-      if (graphId !== LOCAL_GRAPH_ID && failedGraphLoadsRef.current.has(graphId)) {
-        console.warn(`Пропуск загрузки графа ${graphId}: уже в списке неудачных попыток`);
-        return;
-      }
-
-      activeSnapshotControllerRef.current?.abort();
-
-      const controller = new AbortController();
-      activeSnapshotControllerRef.current = controller;
-
-      if (withOverlay) {
-        setIsSnapshotLoading(true);
-      } else {
-        setIsReloadingSnapshot(true);
-      }
-
-      try {
-        if (graphId === LOCAL_GRAPH_ID) {
-          applySnapshot(buildLocalSnapshot());
-          loadedGraphsRef.current.add(graphId);
-          failedGraphLoadsRef.current.delete(graphId);
-          setSnapshotError(null);
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'idle',
-            message: 'Работаем с локальными данными. Изменения не сохраняются.'
-          });
-          return;
-        }
-
-        const snapshot = await fetchGraphSnapshot(graphId, controller.signal);
-        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
-          return;
-        }
-        applySnapshot(snapshot);
-        failedGraphLoadsRef.current.delete(graphId);
-        loadedGraphsRef.current.add(graphId);
-        skipNextSyncRef.current = true;
-        setSnapshotError(null);
-        setIsSyncAvailable(true);
-        setSyncStatus({
-          state: 'idle',
-          message: 'Данные синхронизированы с сервером.'
-        });
-        // Устанавливаем флаг загрузки в false сразу после успешной загрузки
-        if (withOverlay && activeGraphIdRef.current === graphId) {
-          setIsSnapshotLoading(false);
-        }
-      } catch (error) {
-        if (controller.signal.aborted || activeGraphIdRef.current !== graphId) {
-          return;
-        }
-
-        console.error(`Не удалось загрузить граф ${graphId}`, error);
-        const detail = error instanceof Error ? error.message : null;
-        // Показываем уведомление только если граф был явно выбран пользователем и не является локальным
-        if (
-          graphId !== LOCAL_GRAPH_ID &&
-          activeGraphIdRef.current === graphId &&
-          activeGraphIdRef.current !== null
-        ) {
-          showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
-        }
-        setSnapshotError(
-          detail
-            ? `Не удалось загрузить данные графа (${detail}). Выберите другой граф или попробуйте ещё раз.`
-            : 'Не удалось загрузить данные графа. Выберите другой граф или попробуйте ещё раз.'
-        );
-        setIsSyncAvailable(false);
-        const syncErrorMessage = detail
-          ? `Нет связи с сервером (${detail}). Изменения не сохранятся.`
-          : 'Нет связи с сервером. Изменения не сохранятся.';
-        setSyncStatus({
-          state: 'error',
-          message: syncErrorMessage
-        });
-
-        failedGraphLoadsRef.current.add(graphId);
-
-        // Ограничение попыток fallback: не переключаться, если fallback тоже неудачен
-        if (fallbackGraphId !== undefined && updateActiveGraphRef.current) {
-          const fallbackId =
-            fallbackGraphId && graphs.some((graph) => graph.id === fallbackGraphId)
-              ? fallbackGraphId
-              : null;
-
-          if (fallbackId) {
-            // Если fallback уже в списке неудачных, не пытаться переключаться
-            if (failedGraphLoadsRef.current.has(fallbackId)) {
-              console.warn(`Пропуск fallback на граф ${fallbackId}: уже в списке неудачных попыток`);
-              updateActiveGraphRef.current(null, { loadSnapshot: false });
-              return;
-            }
-            // Переключаться на fallback только если он еще не загружался или уже успешно загружен
-            const shouldReloadFallback = !loadedGraphsRef.current.has(fallbackId);
-            updateActiveGraphRef.current(fallbackId, { loadSnapshot: shouldReloadFallback });
-          } else {
-            updateActiveGraphRef.current(null, { loadSnapshot: false });
-          }
-        }
-      } finally {
-        const isCurrentRequest = activeSnapshotControllerRef.current === controller;
-
-        if (isCurrentRequest) {
-          activeSnapshotControllerRef.current = null;
-        }
-
-        if (withOverlay) {
-          if (isCurrentRequest && activeGraphIdRef.current === graphId) {
-            setIsSnapshotLoading(false);
-          }
-        } else if (isCurrentRequest && activeGraphIdRef.current === graphId) {
-          setIsReloadingSnapshot(false);
-        }
-      }
-    },
-    [applySnapshot, graphs, showAdminNotice]
-  );
-
-  loadSnapshotRef.current = loadSnapshot;
-
-  const updateActiveGraph = useCallback(
-    (graphId: string | null, options: { loadSnapshot?: boolean } = {}) => {
-      const { loadSnapshot: shouldLoadSnapshot = graphId !== null } = options;
-      const previousGraphId = activeGraphIdRef.current;
-
-      if (graphId === null) {
-        activeGraphIdRef.current = null;
-        setActiveGraphId(null);
-        activeSnapshotControllerRef.current?.abort();
-        activeSnapshotControllerRef.current = null;
-        hasLoadedSnapshotRef.current = false;
-        hasPendingPersistRef.current = false;
-        setIsSyncAvailable(false);
-        setSyncStatus(null);
-        setSnapshotError(null);
-        setIsReloadingSnapshot(false);
-        setIsSnapshotLoading(false);
-        return;
-      }
-
-      const isValidTarget = graphsRef.current.some((graph) => graph.id === graphId);
-      if (!isValidTarget) {
-        // Показываем уведомление только если граф был явно выбран пользователем и не является локальным
-        if (graphId !== LOCAL_GRAPH_ID && activeGraphIdRef.current === graphId && graphId !== null) {
-          showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
-        }
-        return;
-      }
-
-      // Дополнительная проверка: не пытаться загружать граф, если он уже в списке неудачных
-      // (кроме локального графа, который всегда доступен)
-      if (graphId !== LOCAL_GRAPH_ID && shouldLoadSnapshot && failedGraphLoadsRef.current.has(graphId)) {
-        console.warn(`Пропуск загрузки графа ${graphId}: уже в списке неудачных попыток`);
-        setSnapshotError(`Граф недоступен. Попробуйте выбрать другой граф или обновить список.`);
-        setIsSyncAvailable(false);
-        setSyncStatus({
-          state: 'error',
-          message: 'Граф недоступен. Выберите другой граф или попробуйте ещё раз.'
-        });
-        setIsSnapshotLoading(false);
-        return;
-      }
-
-      if (previousGraphId === graphId) {
-        return;
-      }
-
-      activeGraphIdRef.current = graphId;
-      setActiveGraphId(graphId);
-
-      hasLoadedSnapshotRef.current = false;
-      hasPendingPersistRef.current = false;
-      setIsSyncAvailable(false);
-      setSyncStatus(null);
-      setSnapshotError(null);
-      setIsReloadingSnapshot(false);
-
-      if (shouldLoadSnapshot) {
-        setIsSnapshotLoading(true);
-        void loadSnapshot(graphId, { withOverlay: true, fallbackGraphId: previousGraphId });
-      } else {
-        setIsSnapshotLoading(false);
-      }
-
-      setGraphRenderEpoch((value) => value + 1);
-    },
-    [loadSnapshot, showAdminNotice]
-  );
-
-  updateActiveGraphRef.current = updateActiveGraph;
-
-  const refreshGraphs = useCallback(
-    async (
-      preferredGraphId?: string | null,
-      options: { preserveSelection?: boolean; preferDefault?: boolean } = {}
-    ) => {
-      const { preserveSelection = true, preferDefault = false } = options;
-      setIsGraphsLoading(true);
-      try {
-        const list = await fetchGraphSummaries();
-        graphsRef.current = list;
-        setGraphs(list);
-        setGraphListError(null);
-        loadedGraphsRef.current = new Set(
-          [...loadedGraphsRef.current].filter((id) => list.some((graph) => graph.id === id))
-        );
-
-        const currentActiveId = activeGraphIdRef.current;
-        const nextActiveId = (() => {
-          // 1. Если передан preferredGraphId и он существует в списке - используем его
-          if (preferredGraphId && list.some((graph) => graph.id === preferredGraphId)) {
-            return preferredGraphId;
-          }
-          // 2. Если нужно сохранить выбор и текущий граф существует - используем его
-          if (preserveSelection && currentActiveId && list.some((graph) => graph.id === currentActiveId)) {
-            return currentActiveId;
-          }
-          // 3. Если нужно принудительно выбрать основной граф, делаем это до восстановления из localStorage
-          if (preferDefault) {
-            const defaultGraph = list.find((graph) => graph.isDefault);
-            if (defaultGraph) {
-              return defaultGraph.id;
-            }
-          }
-          // 4. Пытаемся восстановить из localStorage (только если не preserveSelection и не запрошен основной граф)
-          if (!preserveSelection && !preferDefault && typeof window !== 'undefined') {
-            const savedGraphId = localStorage.getItem(STORAGE_KEY_ACTIVE_GRAPH_ID);
-            if (savedGraphId && list.some((graph) => graph.id === savedGraphId)) {
-              return savedGraphId;
-            }
-          }
-          // 5. По умолчанию выбираем основной граф (isDefault), если его нет - первый в списке
-          // Это гарантирует, что при первом заходе всегда будет выбран граф
-          const defaultGraph = list.find((graph) => graph.isDefault);
-          if (defaultGraph) {
-            return defaultGraph.id;
-          }
-          // Если основного графа нет, выбираем первый доступный
-          return list[0]?.id ?? null;
-        })();
-
-        if (nextActiveId) {
-          updateActiveGraph(nextActiveId);
-        } else {
-          updateActiveGraph(null, { loadSnapshot: false });
-        }
-      } catch (error) {
-        console.error('Не удалось обновить список графов', error);
-        const fallbackMessage = 'Не удалось загрузить список графов.';
-        let message = fallbackMessage;
-
-        if (error instanceof TypeError) {
-          message =
-            'Не удалось подключиться к серверу графа. Запустите "npm run server" или используйте "npm run dev:full".';
-        } else if (error instanceof Error && error.message) {
-          message = error.message;
-        }
-
-        setGraphListError(message);
-
-        // При создании нового графа (preferredGraphId установлен) не переключаться на локальный автоматически
-        // Сохраняем текущий выбор, если он был указан явно
-        const currentActiveId = activeGraphIdRef.current;
-        const shouldPreserveSelection = preferredGraphId !== null && preferredGraphId !== undefined;
-
-        // Всегда переключаемся на локальный граф при ошибке, если нет активного графа или если не сохраняем выбор
-        const shouldSwitchToLocal = !currentActiveId || (!shouldPreserveSelection && currentActiveId !== LOCAL_GRAPH_ID);
-
-        if (shouldPreserveSelection && preferredGraphId && currentActiveId === preferredGraphId && !shouldSwitchToLocal) {
-          // Сохраняем выбранный граф, даже если список не загрузился
-          // Пользователь может попробовать загрузить его вручную
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'error',
-            message: 'Нет связи с сервером. Изменения не сохранятся.'
-          });
-          // Не переключаемся на локальный граф, сохраняем текущий выбор
-        } else {
-          // Переключаемся на локальный граф при ошибке загрузки списка
-          const fallbackGraphs = [LOCAL_GRAPH_SUMMARY];
-          graphsRef.current = fallbackGraphs;
-          setGraphs(fallbackGraphs);
-          loadedGraphsRef.current = new Set([LOCAL_GRAPH_ID]);
-
-          // Очищаем уведомление о недоступности графа, так как переключаемся на локальный
-          if (adminNotice?.message === GRAPH_UNAVAILABLE_MESSAGE) {
-            setAdminNotice(null);
-          }
-
-          if (activeGraphIdRef.current !== LOCAL_GRAPH_ID) {
-            updateActiveGraph(LOCAL_GRAPH_ID, { loadSnapshot: false });
-          }
-
-          applySnapshot(buildLocalSnapshot());
-          setIsSyncAvailable(false);
-          setSyncStatus({
-            state: 'error',
-            message: 'Нет связи с сервером. Изменения не сохранятся.'
-          });
-        }
-      } finally {
-        setIsGraphsLoading(false);
-      }
-    },
-    [updateActiveGraph, applySnapshot]
-  );
+  const handleGraphUnavailable = useCallback(() => {
+    showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
+  }, [showAdminNotice]);
 
   useEffect(() => {
-    // При первой загрузке и обновлении страницы автоматически выбираем основной граф
-    void refreshGraphs(null, { preserveSelection: false, preferDefault: true });
+    void loadGraphsList(null, {
+      preserveSelection: false,
+      preferDefault: true,
+      applySnapshot,
+      onGraphUnavailable: handleGraphUnavailable
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -920,7 +557,11 @@ function App() {
       return;
     }
 
-    void loadSnapshotRef.current(graphId, { withOverlay: false });
+    void loadSnapshotRef.current(graphId, {
+      applySnapshot,
+      withOverlay: false,
+      onGraphUnavailable: handleGraphUnavailable
+    });
     setGraphRenderEpoch((prev) => prev + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeMode]);
@@ -931,8 +572,12 @@ function App() {
       return;
     }
 
-    void loadSnapshot(graphId, { withOverlay: false });
-  }, [loadSnapshot]);
+    void loadSnapshot(graphId, {
+      applySnapshot,
+      withOverlay: false,
+      onGraphUnavailable: handleGraphUnavailable
+    });
+  }, [applySnapshot, handleGraphUnavailable, loadSnapshot]);
 
   const markGraphDirty = useCallback(() => {
     hasPendingPersistRef.current = true;
@@ -1147,7 +792,7 @@ function App() {
         return { ...current, status: 'converted', lastUpdated: new Date().toISOString() };
       });
 
-      setViewMode('admin');
+      navigateToView('admin');
       showAdminNotice(
         'success',
         `Команда инициативы «${initiative.name}» передана в черновик модуля.`
@@ -1158,7 +803,7 @@ function App() {
       expertProfiles,
       moduleData,
       patchInitiative,
-      setViewMode,
+      navigateToView,
       showAdminNotice,
       setModuleDraftPrefill
     ]
@@ -1302,101 +947,6 @@ function App() {
     () => (typeof search === 'string' ? search.trim().toLowerCase() : ''),
     [search]
   );
-
-  useEffect(() => {
-    if (!isSyncAvailable || !hasLoadedSnapshotRef.current || !activeGraphId) {
-      return;
-    }
-
-    if (skipNextSyncRef.current) {
-      skipNextSyncRef.current = false;
-      return;
-    }
-
-    if (!hasPendingPersistRef.current) {
-      return;
-    }
-
-    hasPendingPersistRef.current = false;
-
-    const { positions: constrainedLayout, changed: layoutAdjusted } = normalizeLayoutPositions(
-      layoutPositions
-    );
-
-    if (layoutAdjusted) {
-      setLayoutPositions(constrainedLayout);
-      hasPendingPersistRef.current = true;
-      return;
-    }
-
-    const controller = new AbortController();
-    let cancelled = false;
-
-    setSyncStatus((prev) => {
-      if (prev?.state === 'error') {
-        return { state: 'saving', message: 'Повторяем синхронизацию...' };
-      }
-      return { state: 'saving', message: 'Сохраняем изменения в хранилище...' };
-    });
-
-    const graphId = activeGraphId;
-    const exportTimestamp = new Date().toISOString();
-
-    persistGraphSnapshot(
-      graphId,
-      {
-        version: GRAPH_SNAPSHOT_VERSION,
-        exportedAt: exportTimestamp,
-        modules: moduleData,
-        domains: domainData,
-        artifacts: artifactData,
-        experts: expertProfiles,
-        initiatives: initiativeData,
-        layout: { nodes: constrainedLayout }
-      },
-      controller.signal
-    )
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        setSyncStatus({
-          state: 'idle',
-          message: `Сохранено ${new Date().toLocaleTimeString()}`
-        });
-        setGraphs((prev) =>
-          prev.map((graph) =>
-            graph.id === graphId ? { ...graph, updatedAt: exportTimestamp } : graph
-          )
-        );
-      })
-      .catch((error) => {
-        if (cancelled || controller.signal.aborted) {
-          return;
-        }
-        console.error('Не удалось сохранить граф', error);
-        hasPendingPersistRef.current = true;
-        setSyncStatus({
-          state: 'error',
-          message:
-            error instanceof Error ? error.message : 'Не удалось сохранить данные.'
-        });
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [
-    artifactData,
-    initiativeData,
-    expertProfiles,
-    domainData,
-    moduleData,
-    isSyncAvailable,
-    layoutPositions,
-    activeGraphId
-  ]);
 
 
   const matchesModuleFilters = useCallback(
@@ -2194,7 +1744,7 @@ function App() {
       markGraphDirty();
       const recalculatedModules = recalculateReuseScores([...moduleData, newModule]);
       const createdModule = recalculatedModules.find((module) => module.id === moduleId);
-      setModuleDataState(recalculatedModules);
+      setModuleData(recalculatedModules);
 
       setArtifactData((prev) =>
         prev.map((artifact) => {
@@ -2237,7 +1787,7 @@ function App() {
       if (createdModule) {
         setSelectedNode({ ...createdModule, type: 'module' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       if (createdModule) {
         showAdminNotice('success', `Модуль «${createdModule.name}» создан.`);
       }
@@ -2245,6 +1795,7 @@ function App() {
     [
       defaultDomainId,
       attachableDomainIdSet,
+      navigateToView,
       markGraphDirty,
       moduleData,
       selectedNode,
@@ -2287,7 +1838,7 @@ function App() {
       const recalculatedModule = recalculatedModules.find((module) => module.id === moduleId);
       const producedSet = new Set(recalculatedModule?.produces ?? []);
 
-      setModuleDataState(recalculatedModules);
+      setModuleData(recalculatedModules);
 
       setArtifactData((prev) =>
         prev.map((artifact) => {
@@ -2365,7 +1916,7 @@ function App() {
           )
         }));
 
-      setModuleDataState(recalculateReuseScores(nextModulesBase));
+      setModuleData(nextModulesBase);
       setInitiativeData((prev) =>
         prev.map((initiative) => ({
           ...initiative,
@@ -2440,13 +1991,11 @@ function App() {
       const moduleIds = !draft.isCatalogRoot && targetParentId ? draft.moduleIds : [];
       if (moduleIds.length > 0) {
         const moduleSet = new Set(moduleIds);
-        setModuleDataState((prev) =>
-          recalculateReuseScores(
-            prev.map((module) =>
-              moduleSet.has(module.id) && !module.domains.includes(domainId)
-                ? { ...module, domains: [...module.domains, domainId] }
-                : module
-            )
+        setModuleData((prev) =>
+          prev.map((module) =>
+            moduleSet.has(module.id) && !module.domains.includes(domainId)
+              ? { ...module, domains: [...module.domains, domainId] }
+              : module
           )
         );
       }
@@ -2460,7 +2009,7 @@ function App() {
       if (!draft.isCatalogRoot) {
         setSelectedNode({ ...newDomain, type: 'domain' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice(
         'success',
         `${draft.isCatalogRoot ? 'Корневой каталог' : 'Домен'} «${normalizedName}» создан.`
@@ -2551,18 +2100,16 @@ function App() {
       const moduleSet = !draft.isCatalogRoot && targetParentId
         ? new Set(draft.moduleIds)
         : new Set<string>();
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            const hasDomain = module.domains.includes(domainId);
-            if (moduleSet.has(module.id)) {
-              return hasDomain ? module : { ...module, domains: [...module.domains, domainId] };
-            }
-            return hasDomain
-              ? { ...module, domains: module.domains.filter((id) => id !== domainId) }
-              : module;
-          })
-        )
+      setModuleData((prev) =>
+        prev.map((module) => {
+          const hasDomain = module.domains.includes(domainId);
+          if (moduleSet.has(module.id)) {
+            return hasDomain ? module : { ...module, domains: [...module.domains, domainId] };
+          }
+          return hasDomain
+            ? { ...module, domains: module.domains.filter((id) => id !== domainId) }
+            : module;
+        })
       );
 
       setSelectedNode((prev) =>
@@ -2591,13 +2138,11 @@ function App() {
 
       markGraphDirty();
       setDomainData(nextTree);
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => ({
-            ...module,
-            domains: module.domains.filter((id) => !removedIds.has(id))
-          }))
-        )
+      setModuleData((prev) =>
+        prev.map((module) => ({
+          ...module,
+          domains: module.domains.filter((id) => !removedIds.has(id))
+        }))
       );
       setArtifactData((prev) => prev.filter((artifact) => !removedIds.has(artifact.domainId)));
       setInitiativeData((prev) =>
@@ -2661,25 +2206,24 @@ function App() {
       markGraphDirty();
       setArtifactData([...artifactData, newArtifact]);
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            let next = module;
+      setModuleData((prev) =>
+        prev.map((module) => {
+          let next = module;
 
-            if (producerId && module.id === producerId) {
-              const produces = module.produces.includes(artifactId)
-                ? module.produces
-                : [...module.produces, artifactId];
-              const existingOutputIndex = module.dataOut.findIndex(
-                (output) => output.artifactId === artifactId || output.label === normalizedName
-              );
-              const dataOut = existingOutputIndex >= 0
-                ? module.dataOut.map((output, index) =>
+          if (producerId && module.id === producerId) {
+            const produces = module.produces.includes(artifactId)
+              ? module.produces
+              : [...module.produces, artifactId];
+            const existingOutputIndex = module.dataOut.findIndex(
+              (output) => output.artifactId === artifactId || output.label === normalizedName
+            );
+            const dataOut = existingOutputIndex >= 0
+              ? module.dataOut.map((output, index) =>
                   index === existingOutputIndex
                     ? { ...output, label: normalizedName, artifactId }
                     : output
                 )
-                : [
+              : [
                   ...module.dataOut,
                   {
                     id: `output-${module.dataOut.length + 1}-${artifactId}`,
@@ -2687,26 +2231,25 @@ function App() {
                     artifactId
                   }
                 ];
-              next = { ...next, produces, dataOut };
-            }
+            next = { ...next, produces, dataOut };
+          }
 
-            if (consumers.includes(module.id) && !module.dataIn.some((input) => input.sourceId === artifactId)) {
-              next = {
-                ...next,
-                dataIn: [
-                  ...module.dataIn,
-                  {
-                    id: `input-${module.dataIn.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    sourceId: artifactId
-                  }
-                ]
-              };
-            }
+          if (consumers.includes(module.id) && !module.dataIn.some((input) => input.sourceId === artifactId)) {
+            next = {
+              ...next,
+              dataIn: [
+                ...module.dataIn,
+                {
+                  id: `input-${module.dataIn.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  sourceId: artifactId
+                }
+              ]
+            };
+          }
 
-            return next;
-          })
-        )
+          return next;
+        })
       );
 
       setSelectedNode({ ...newArtifact, type: 'artifact', reuseScore: 0 });
@@ -2715,7 +2258,7 @@ function App() {
         next.add(domainId);
         return next;
       });
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice('success', `Артефакт «${normalizedName}» создан.`);
     },
     [
@@ -2764,81 +2307,73 @@ function App() {
         prev.map((artifact) => (artifact.id === artifactId ? updatedArtifact : artifact))
       );
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => {
-            let next = module;
-            const isProducer = producerId && module.id === producerId;
-            const wasProducer = existing.producedBy && module.id === existing.producedBy;
-            let produces = module.produces;
-            let dataOut = module.dataOut;
+      setModuleData((prev) =>
+        prev.map((module) => {
+          let next = module;
+          const isProducer = producerId && module.id === producerId;
+          const wasProducer = existing.producedBy && module.id === existing.producedBy;
+          let produces = module.produces;
+          let dataOut = module.dataOut;
 
-            if (isProducer) {
-              if (!produces.includes(artifactId)) {
-                produces = [...produces, artifactId];
-              }
-              const outputIndex = dataOut.findIndex(
-                (output) => output.artifactId === artifactId
-              );
-              if (outputIndex >= 0) {
-                dataOut = dataOut.map((output, index) =>
-                  index === outputIndex
-                    ? {
+          if (isProducer) {
+            if (!produces.includes(artifactId)) {
+              produces = [...produces, artifactId];
+            }
+            const outputIndex = dataOut.findIndex((output) => output.artifactId === artifactId);
+            if (outputIndex >= 0) {
+              dataOut = dataOut.map((output, index) =>
+                index === outputIndex
+                  ? {
                       ...output,
                       label: normalizedName,
                       artifactId
                     }
-                    : output
-                );
-              } else {
-                dataOut = [
-                  ...dataOut,
-                  {
-                    id: `output-${dataOut.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    artifactId
-                  }
-                ];
-              }
-            } else if (wasProducer) {
-              produces = produces.filter((id) => id !== artifactId);
-              dataOut = dataOut.filter((output) => output.artifactId !== artifactId);
+                  : output
+              );
+            } else {
+              dataOut = [
+                ...dataOut,
+                {
+                  id: `output-${dataOut.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  artifactId
+                }
+              ];
             }
+          } else if (wasProducer) {
+            produces = produces.filter((id) => id !== artifactId);
+            dataOut = dataOut.filter((output) => output.artifactId !== artifactId);
+          }
 
-            const isConsumer = consumers.includes(module.id);
-            const wasConsumer = existing.consumerIds.includes(module.id);
-            let dataIn = module.dataIn;
+          const isConsumer = consumers.includes(module.id);
+          const wasConsumer = existing.consumerIds.includes(module.id);
+          let dataIn = module.dataIn;
 
-            if (isConsumer) {
-              if (dataIn.some((input) => input.sourceId === artifactId)) {
-                dataIn = dataIn.map((input) =>
-                  input.sourceId === artifactId ? { ...input, label: normalizedName } : input
-                );
-              } else {
-                dataIn = [
-                  ...dataIn,
-                  {
-                    id: `input-${dataIn.length + 1}-${artifactId}`,
-                    label: normalizedName,
-                    sourceId: artifactId
-                  }
-                ];
-              }
-            } else if (wasConsumer) {
-              dataIn = dataIn.filter((input) => input.sourceId !== artifactId);
+          if (isConsumer) {
+            if (dataIn.some((input) => input.sourceId === artifactId)) {
+              dataIn = dataIn.map((input) =>
+                input.sourceId === artifactId ? { ...input, label: normalizedName } : input
+              );
+            } else {
+              dataIn = [
+                ...dataIn,
+                {
+                  id: `input-${dataIn.length + 1}-${artifactId}`,
+                  label: normalizedName,
+                  sourceId: artifactId
+                }
+              ];
             }
+          } else if (wasConsumer) {
+            dataIn = dataIn.filter((input) => input.sourceId !== artifactId);
+          }
 
-            if (
-              produces !== module.produces ||
-              dataOut !== module.dataOut ||
-              dataIn !== module.dataIn
-            ) {
-              next = { ...module, produces, dataOut, dataIn };
-            }
+          if (produces !== module.produces || dataOut !== module.dataOut || dataIn !== module.dataIn) {
+            next = { ...module, produces, dataOut, dataIn };
+          }
 
-            return next;
-          })
-        )
+          return next;
+        })
       );
 
       setSelectedNode((prev) =>
@@ -2859,15 +2394,13 @@ function App() {
       markGraphDirty();
       setArtifactData((prev) => prev.filter((artifact) => artifact.id !== artifactId));
 
-      setModuleDataState((prev) =>
-        recalculateReuseScores(
-          prev.map((module) => ({
-            ...module,
-            produces: module.produces.filter((id) => id !== artifactId),
-            dataOut: module.dataOut.filter((output) => output.label !== existing.name),
-            dataIn: module.dataIn.filter((input) => input.sourceId !== artifactId)
-          }))
-        )
+      setModuleData((prev) =>
+        prev.map((module) => ({
+          ...module,
+          produces: module.produces.filter((id) => id !== artifactId),
+          dataOut: module.dataOut.filter((output) => output.label !== existing.name),
+          dataIn: module.dataIn.filter((input) => input.sourceId !== artifactId)
+        }))
       );
 
       setLayoutPositions((prev) => {
@@ -3367,7 +2900,11 @@ function App() {
       setGraphSourceIdDraft(null);
       setGraphCopyOptions(new Set(['domains', 'modules', 'artifacts', 'experts', 'initiatives']));
       setIsCreatePanelOpen(false);
-      await refreshGraphs(created.id, { preserveSelection: false });
+      await loadGraphsList(created.id, {
+        preserveSelection: false,
+        applySnapshot,
+        onGraphUnavailable: handleGraphUnavailable
+      });
       showAdminNotice('success', `Граф «${created.name}» создан.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось создать граф.';
@@ -3376,13 +2913,15 @@ function App() {
       setIsGraphActionInProgress(false);
     }
   }, [
+    applySnapshot,
     graphNameDraft,
     graphSourceIdDraft,
     graphCopyOptions,
     isGraphActionInProgress,
-    refreshGraphs,
+    loadGraphsList,
     showAdminNotice,
-    graphs
+    graphs,
+    handleGraphUnavailable
   ]);
 
   const handleDeleteGraph = useCallback(
@@ -3414,7 +2953,11 @@ function App() {
       setGraphActionStatus(null);
       try {
         await deleteGraphRequest(graphId);
-        await refreshGraphs(null, { preserveSelection: true });
+        await loadGraphsList(null, {
+          preserveSelection: true,
+          applySnapshot,
+          onGraphUnavailable: handleGraphUnavailable
+        });
         setGraphActionStatus({ type: 'success', message: `Граф «${target.name}» удалён.` });
         showAdminNotice('success', `Граф «${target.name}» удалён.`);
       } catch (error) {
@@ -3424,7 +2967,14 @@ function App() {
         setIsGraphActionInProgress(false);
       }
     },
-    [graphs, isGraphActionInProgress, refreshGraphs, showAdminNotice]
+    [
+      applySnapshot,
+      graphs,
+      handleGraphUnavailable,
+      isGraphActionInProgress,
+      loadGraphsList,
+      showAdminNotice
+    ]
   );
 
   const handleCreateGraph = useCallback(() => {
@@ -3434,12 +2984,15 @@ function App() {
   const handleGraphSelect = useCallback(
     (graphId: string | null) => {
       if (graphId) {
-        updateActiveGraph(graphId);
+        updateActiveGraph(graphId, {
+          applySnapshot,
+          onGraphUnavailable: handleGraphUnavailable
+        });
       } else {
-        updateActiveGraph(null, { loadSnapshot: false });
+        updateActiveGraph(null, { loadSnapshot: false, applySnapshot });
       }
     },
-    [updateActiveGraph]
+    [applySnapshot, handleGraphUnavailable, updateActiveGraph]
   );
 
   const shouldShowInitialLoader =
@@ -3497,7 +3050,7 @@ function App() {
   }, [themeMode]);
 
   if (!user) {
-    return <Login />;
+    return <Navigate to="/login" replace />;
   }
 
   const pageVariants = {
@@ -3517,11 +3070,164 @@ function App() {
     }
   };
 
+  const graphPageProps: GraphContainerProps = {
+    isActive: true,
+    pageVariants,
+    sidebarRef,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    onToggleDomainTree: () => setIsDomainTreeOpen((prev) => !prev),
+    areFiltersOpen,
+    onToggleFilters: () => setAreFiltersOpen((prev) => !prev),
+    onToggleDomain: handleDomainToggle,
+    domainDescendants,
+    onSearchChange: handleSearchChange,
+    allStatuses,
+    onStatusToggle: (status) => {
+      setSelectedNode(null);
+      setStatusFilters((prev) => {
+        const next = new Set(prev);
+        if (next.has(status)) {
+          next.delete(status);
+        } else {
+          next.add(status);
+        }
+        return next;
+      });
+    },
+    products,
+    onProductFilterChange: (nextProducts) => {
+      setSelectedNode(null);
+      setProductFilter(nextProducts);
+    },
+    companies,
+    onCompanyChange: (nextCompany) => {
+      setSelectedNode(null);
+      setCompanyFilter(nextCompany);
+    },
+    onToggleConnections: (value) => setShowAllConnections(value),
+    graphModules,
+    graphDomains,
+    graphArtifacts,
+    graphInitiatives,
+    filteredLinks,
+    graphVersion: `${activeGraphId ?? 'local'}:${graphRenderEpoch}`,
+    onSelectNode: handleSelectNode,
+    selectedNode,
+    visibleDomainIds: relevantDomainIds,
+    onLayoutChange: handleLayoutChange,
+    shouldShowAnalytics,
+    filteredModules,
+    domainNameMap,
+    moduleNameMap,
+    artifactNameMap,
+    onNavigate: handleNavigate
+  };
+
+  const statsPageProps: StatsPageProps = {
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    reuseHistory: reuseIndexHistory
+  };
+
+  const expertsPageProps: ExpertsContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    modules: moduleData,
+    moduleNameMap,
+    moduleDomainMap,
+    domainNameMap,
+    initiatives: initiativeData,
+    onUpdateExpertSkills: handleUpdateExpertSkills,
+    onUpdateExpertSoftSkills: handleUpdateExpertSoftSkills
+  };
+
+  const initiativesPageProps: InitiativesContainerProps = {
+    isActive: true,
+    pageVariants,
+    initiatives: initiativeData,
+    experts: expertProfiles,
+    domains: domainData,
+    modules: moduleData,
+    domainNameMap,
+    employeeTasks,
+    onTogglePin: handleToggleInitiativePin,
+    onAddRisk: handleAddInitiativeRisk,
+    onRemoveRisk: handleRemoveInitiativeRisk,
+    onStatusChange: handleInitiativeStatusChange,
+    onExport: handleInitiativeExport,
+    onCreateInitiative: handlePlannerCreateInitiative,
+    onUpdateInitiative: handlePlannerUpdateInitiative
+  };
+
+  const employeeTasksPageProps: EmployeeTasksContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    tasks: employeeTasks,
+    onTasksChange: setEmployeeTasks
+  };
+
+  const adminPageProps: AdminContainerProps = {
+    isActive: true,
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    employeeTasks,
+    moduleDraftPrefill,
+    onModuleDraftPrefillApplied: handleModuleDraftPrefillApplied,
+    onCreateModule: handleCreateModule,
+    onUpdateModule: handleUpdateModule,
+    onDeleteModule: handleDeleteModule,
+    onCreateDomain: handleCreateDomain,
+    onUpdateDomain: handleUpdateDomain,
+    onDeleteDomain: handleDeleteDomain,
+    onCreateArtifact: handleCreateArtifact,
+    onUpdateArtifact: handleUpdateArtifact,
+    onDeleteArtifact: handleDeleteArtifact,
+    onCreateExpert: handleCreateExpert,
+    onUpdateExpert: handleUpdateExpert,
+    onDeleteExpert: handleDeleteExpert,
+    onUpdateEmployeeTasks: setEmployeeTasks,
+    users,
+    onCreateUser: handleCreateUser,
+    onUpdateUser: handleUpdateUser,
+    onDeleteUser: handleDeleteUser,
+    currentUser: user,
+    graphs,
+    activeGraphId,
+    onGraphSelect: handleGraphSelect,
+    onGraphCreate: handleCreateGraph,
+    onGraphDelete: activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined,
+    isGraphListLoading: isGraphsLoading,
+    syncStatus,
+    layout: layoutSnapshot,
+    isSyncAvailable,
+    onImport: handleImportGraph,
+    onImportFromGraph: handleImportFromExistingGraph,
+    onRetryLoad: handleRetryLoadSnapshot,
+    isReloading: isReloadingSnapshot
+  };
+
+  const outletContext: AppOutletContext = {
+    graphPageProps,
+    statsPageProps,
+    expertsPageProps,
+    initiativesPageProps,
+    employeeTasksPageProps,
+    adminPageProps
+  };
+
   return (
     <ThemeContainer preset={themePreset} themeKey={themeMode}>
       <LayoutShell
-        currentView={viewMode}
-        onViewChange={setViewMode}
         headerTitle={headerTitle}
         headerDescription={headerDescription}
         themeMode={themeMode}
@@ -3601,166 +3307,7 @@ function App() {
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <GraphContainer
-              isActive={isGraphActive}
-              pageVariants={pageVariants}
-              sidebarRef={sidebarRef}
-              sidebarMaxHeight={sidebarMaxHeight}
-              isDomainTreeOpen={isDomainTreeOpen}
-              onToggleDomainTree={() => setIsDomainTreeOpen((prev) => !prev)}
-              areFiltersOpen={areFiltersOpen}
-              onToggleFilters={() => setAreFiltersOpen((prev) => !prev)}
-              domainData={domainData}
-              selectedDomains={selectedDomains}
-              onToggleDomain={handleDomainToggle}
-              domainDescendants={domainDescendants}
-              search={search}
-              onSearchChange={handleSearchChange}
-              allStatuses={allStatuses}
-              statusFilters={statusFilters}
-              onStatusToggle={(status) => {
-                setSelectedNode(null);
-                setStatusFilters((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(status)) {
-                    next.delete(status);
-                  } else {
-                    next.add(status);
-                  }
-                  return next;
-                });
-              }}
-              products={products}
-              productFilter={productFilter}
-              onProductFilterChange={(nextProducts) => {
-                setSelectedNode(null);
-                setProductFilter(nextProducts);
-              }}
-              companies={companies}
-              companyFilter={companyFilter}
-              onCompanyChange={(nextCompany) => {
-                setSelectedNode(null);
-                setCompanyFilter(nextCompany);
-              }}
-              showAllConnections={showAllConnections}
-              onToggleConnections={(value) => setShowAllConnections(value)}
-              graphModules={graphModules}
-              graphDomains={graphDomains}
-              graphArtifacts={graphArtifacts}
-              graphInitiatives={graphInitiatives}
-              filteredLinks={filteredLinks}
-              graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
-              onSelectNode={handleSelectNode}
-              selectedNode={selectedNode}
-              visibleDomainIds={relevantDomainIds}
-              layoutPositions={layoutPositions}
-              layoutNormalizationRequest={layoutNormalizationRequest}
-              onLayoutChange={handleLayoutChange}
-              shouldShowAnalytics={shouldShowAnalytics}
-              filteredModules={filteredModules}
-              domainNameMap={domainNameMap}
-              moduleNameMap={moduleNameMap}
-              artifactNameMap={artifactNameMap}
-              expertProfiles={expertProfiles}
-              onNavigate={handleNavigate}
-            />
-            {(statsActivated || isStatsActive) && (
-              <motion.main
-                className={styles.statsMain}
-                initial="hidden"
-                animate={isStatsActive ? 'visible' : 'hidden'}
-                variants={pageVariants}
-              >
-                <Suspense fallback={<Loader size="m" />}>
-                  <StatsDashboard
-                    modules={moduleData}
-                    domains={domainData}
-                    artifacts={artifactData}
-                    reuseHistory={reuseIndexHistory}
-                  />
-                </Suspense>
-              </motion.main>
-            )}
-            <ExpertsContainer
-              isActive={isExpertsActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              modules={moduleData}
-              moduleNameMap={moduleNameMap}
-              moduleDomainMap={moduleDomainMap}
-              domainNameMap={domainNameMap}
-              initiatives={initiativeData}
-              onUpdateExpertSkills={handleUpdateExpertSkills}
-              onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
-            />
-            <InitiativesContainer
-              isActive={isInitiativesActive}
-              pageVariants={pageVariants}
-              initiatives={initiativeData}
-              experts={expertProfiles}
-              domains={domainData}
-              modules={moduleData}
-              domainNameMap={domainNameMap}
-              employeeTasks={employeeTasks}
-              onTogglePin={handleToggleInitiativePin}
-              onAddRisk={handleAddInitiativeRisk}
-              onRemoveRisk={handleRemoveInitiativeRisk}
-              onStatusChange={handleInitiativeStatusChange}
-              onExport={handleInitiativeExport}
-              onCreateInitiative={handlePlannerCreateInitiative}
-              onUpdateInitiative={handlePlannerUpdateInitiative}
-            />
-            <EmployeeTasksContainer
-              isActive={isEmployeeTasksActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              tasks={employeeTasks}
-              onTasksChange={setEmployeeTasks}
-            />
-            <AdminContainer
-              isActive={isAdminActive}
-              pageVariants={pageVariants}
-              modules={moduleData}
-              domains={domainData}
-              artifacts={artifactData}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              employeeTasks={employeeTasks}
-              moduleDraftPrefill={moduleDraftPrefill}
-              onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
-              onCreateModule={handleCreateModule}
-              onUpdateModule={handleUpdateModule}
-              onDeleteModule={handleDeleteModule}
-              onCreateDomain={handleCreateDomain}
-              onUpdateDomain={handleUpdateDomain}
-              onDeleteDomain={handleDeleteDomain}
-              onCreateArtifact={handleCreateArtifact}
-              onUpdateArtifact={handleUpdateArtifact}
-              onDeleteArtifact={handleDeleteArtifact}
-              onCreateExpert={handleCreateExpert}
-              onUpdateExpert={handleUpdateExpert}
-              onDeleteExpert={handleDeleteExpert}
-              onUpdateEmployeeTasks={setEmployeeTasks}
-              users={users}
-              onCreateUser={handleCreateUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-              currentUser={user}
-              graphs={graphs}
-              activeGraphId={activeGraphId}
-              onGraphSelect={handleGraphSelect}
-              onGraphCreate={handleCreateGraph}
-              onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
-              isGraphListLoading={isGraphsLoading}
-              syncStatus={syncStatus}
-              layout={layoutSnapshot}
-              isSyncAvailable={isSyncAvailable}
-              onImport={handleImportGraph}
-              onImportFromGraph={handleImportFromExistingGraph}
-              onRetryLoad={handleRetryLoadSnapshot}
-              isReloading={isReloadingSnapshot}
-            />
+            <Outlet context={outletContext} />
           </>
         )}
       </LayoutShell>
@@ -4638,6 +4185,18 @@ function getLinkEndpointId(value: LinkEndpoint): string {
   }
 
   return value;
+}
+
+function App() {
+  return (
+    <UIProvider>
+      <GraphDataProvider>
+        <FilterProvider>
+          <AppContent />
+        </FilterProvider>
+      </GraphDataProvider>
+    </UIProvider>
+  );
 }
 
 export default App;
