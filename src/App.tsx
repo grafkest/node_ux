@@ -243,6 +243,7 @@ function AppContent() {
     loadStoredTasks() ?? initialEmployeeTasks
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
+  const [statsActivated, setStatsActivated] = useState(false);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
