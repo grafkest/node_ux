@@ -187,6 +187,11 @@
   justify-content: flex-start;
 }
 
+.menuLink {
+  text-decoration: none;
+  display: block;
+}
+
 .sidebarCollapsed .menuButton {
   justify-content: center;
 }
