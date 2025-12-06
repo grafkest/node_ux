@@ -33,6 +33,7 @@ import type {
 import type { ModuleStatus } from '../types/module';
 import { flattenDomainTree } from '../utils/domain';
 import { recalculateReuseScores } from '../utils/module';
+import { normalizeLayoutPositions } from '../utils/layout';
 import {
   fetchGraphSnapshot,
   fetchGraphSummaries,
@@ -637,6 +638,64 @@ export function GraphProvider({ children }: PropsWithChildren) {
     },
     []
   );
+
+  useEffect(() => {
+    if (!isSyncAvailable || !hasLoadedSnapshotRef.current || !activeGraphId) {
+      return;
+    }
+
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
+
+    if (!hasPendingPersistRef.current) {
+      return;
+    }
+
+    hasPendingPersistRef.current = false;
+
+    const { positions: constrainedLayout, changed: layoutAdjusted } = normalizeLayoutPositions(
+      layoutPositions
+    );
+
+    if (layoutAdjusted) {
+      setLayoutPositions(constrainedLayout);
+      hasPendingPersistRef.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void persistGraphSnapshot(
+      activeGraphId,
+      {
+        version: GRAPH_SNAPSHOT_VERSION,
+        exportedAt: new Date().toISOString(),
+        modules: moduleData,
+        domains: domainData,
+        artifacts: artifactData,
+        experts: expertProfiles,
+        initiatives: initiativeData,
+        layout: { nodes: constrainedLayout }
+      },
+      { signal: controller.signal }
+    );
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    artifactData,
+    initiativeData,
+    expertProfiles,
+    domainData,
+    moduleData,
+    isSyncAvailable,
+    layoutPositions,
+    activeGraphId,
+    persistGraphSnapshot
+  ]);
 
   const value: GraphContextValue = {
     graphs,
