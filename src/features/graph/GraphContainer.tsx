@@ -10,7 +10,7 @@ import GraphView, { type GraphNode } from '../../components/GraphView';
 import NodeDetails from '../../components/NodeDetails';
 import styles from '../../App.module.css';
 import type { ArtifactNode, DomainNode, GraphLink, Initiative, ModuleNode } from '../../data';
-import type { ExpertProfile, GraphLayoutNodePosition } from '../../types/graph';
+import type { GraphLayoutNodePosition } from '../../types/graph';
 import type { ModuleStatus } from '../../types/module';
 import { useGraph } from '../../context/GraphContext';
 
@@ -48,7 +48,6 @@ export type GraphContainerProps = {
   domainNameMap: Record<string, string>;
   moduleNameMap: Record<string, string>;
   artifactNameMap: Record<string, string>;
-  expertProfiles: ExpertProfile[];
   onNavigate: (nodeId: string) => void;
 };
 
@@ -86,7 +85,6 @@ export function GraphContainer({
   domainNameMap,
   moduleNameMap,
   artifactNameMap,
-  expertProfiles,
   onNavigate
 }: GraphContainerProps) {
   const {
@@ -98,7 +96,8 @@ export function GraphContainer({
     companyFilter,
     showAllConnections,
     layoutPositions,
-    layoutNormalizationRequest
+    layoutNormalizationRequest,
+    expertProfiles
   } = useGraph();
   return (
     <motion.main

@@ -134,33 +134,20 @@ function AppContent() {
   const { user, logout } = useAuth();
   const {
     graphs,
-    setGraphs,
-    graphsRef,
     activeGraphId,
-    setActiveGraphId,
     activeGraphIdRef,
     isGraphsLoading,
-    setIsGraphsLoading,
     graphListError,
-    setGraphListError,
     isSnapshotLoading,
-    setIsSnapshotLoading,
     snapshotError,
-    setSnapshotError,
     syncStatus,
-    setSyncStatus,
     isSyncAvailable,
-    setIsSyncAvailable,
     isReloadingSnapshot,
-    setIsReloadingSnapshot,
     hasLoadedSnapshotRef,
     skipNextSyncRef,
     hasPendingPersistRef,
     activeSnapshotControllerRef,
-    failedGraphLoadsRef,
-    updateActiveGraphRef,
     loadSnapshotRef,
-    loadedGraphsRef,
     shouldCaptureEngineLayoutRef,
     layoutPositions,
     setLayoutPositions,
@@ -211,11 +198,6 @@ function AppContent() {
     loadStoredTasks() ?? initialEmployeeTasks
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
-  const domainDataRef = useRef(domainData);
-  const moduleDataRef = useRef(moduleData);
-  const artifactDataRef = useRef(artifactData);
-  const initiativeDataRef = useRef(initiativeData);
-  const expertProfilesRef = useRef(expertProfiles);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
@@ -452,36 +434,16 @@ function AppContent() {
     }
   }, [companyFilter, companies]);
 
-  useEffect(() => {
-    domainDataRef.current = domainData;
-  }, [domainData]);
-
-  useEffect(() => {
-    moduleDataRef.current = moduleData;
-  }, [moduleData]);
-
-  useEffect(() => {
-    artifactDataRef.current = artifactData;
-  }, [artifactData]);
-
-  useEffect(() => {
-    initiativeDataRef.current = initiativeData;
-  }, [initiativeData]);
-
-  useEffect(() => {
-    expertProfilesRef.current = expertProfiles;
-  }, [expertProfiles]);
-
   const applySnapshot = useCallback((snapshot: GraphSnapshotPayload) => {
     const scopes = new Set<GraphDataScope>(
       snapshot.scopesIncluded ?? ['domains', 'modules', 'artifacts', 'experts', 'initiatives']
     );
 
-    const currentDomains = domainDataRef.current;
-    const currentModules = moduleDataRef.current;
-    const currentArtifacts = artifactDataRef.current;
-    const currentExperts = expertProfilesRef.current;
-    const currentInitiatives = initiativeDataRef.current;
+    const currentDomains = domainData;
+    const currentModules = moduleData;
+    const currentArtifacts = artifactData;
+    const currentExperts = expertProfiles;
+    const currentInitiatives = initiativeData;
 
     const nextDomains = scopes.has('domains') ? snapshot.domains : currentDomains;
     const nextModules = scopes.has('modules') ? snapshot.modules : currentModules;
@@ -574,7 +536,31 @@ function AppContent() {
     if (!shouldRequestLayoutNormalization) {
       hasPendingPersistRef.current = false;
     }
-  }, []);
+  }, [
+    allStatuses,
+    artifactData,
+    domainData,
+    expertProfiles,
+    hasLoadedSnapshotRef,
+    hasPendingPersistRef,
+    initiativeData,
+    moduleData,
+    setArtifactData,
+    setCompanyFilter,
+    setDomainData,
+    setExpertProfiles,
+    setGraphRenderEpoch,
+    setInitiativeData,
+    setLayoutNormalizationRequest,
+    setLayoutPositions,
+    setModuleData,
+    setProductFilter,
+    setSearch,
+    setSelectedDomains,
+    setSelectedNode,
+    setStatusFilters,
+    shouldCaptureEngineLayoutRef
+  ]);
 
   const handleGraphUnavailable = useCallback(() => {
     showAdminNotice('error', GRAPH_UNAVAILABLE_MESSAGE);
@@ -3310,7 +3296,6 @@ function AppContent() {
               domainNameMap={domainNameMap}
               moduleNameMap={moduleNameMap}
               artifactNameMap={artifactNameMap}
-              expertProfiles={expertProfiles}
               onNavigate={handleNavigate}
             />
             {(statsActivated || isStatsActive) && (
