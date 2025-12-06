@@ -1,12 +1,36 @@
+import { Suspense, lazy, type ReactElement } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import App from './App';
-import { GraphPage } from './pages/GraphPage';
-import { StatsPage } from './pages/StatsPage';
-import { ExpertsPage } from './pages/ExpertsPage';
-import { InitiativesPage } from './pages/InitiativesPage';
-import { EmployeeTasksPage } from './pages/EmployeeTasksPage';
-import { AdminPage } from './pages/AdminPage';
-import { LoginPage } from './pages/LoginPage';
+
+const App = lazy(async () => ({
+  default: (await import('./App')).default
+}));
+const GraphPage = lazy(async () => ({
+  default: (await import('./pages/GraphPage')).GraphPage
+}));
+const StatsPage = lazy(async () => ({
+  default: (await import('./pages/StatsPage')).StatsPage
+}));
+const ExpertsPage = lazy(async () => ({
+  default: (await import('./pages/ExpertsPage')).ExpertsPage
+}));
+const InitiativesPage = lazy(async () => ({
+  default: (await import('./pages/InitiativesPage')).InitiativesPage
+}));
+const EmployeeTasksPage = lazy(async () => ({
+  default: (await import('./pages/EmployeeTasksPage')).EmployeeTasksPage
+}));
+const AdminPage = lazy(async () => ({
+  default: (await import('./pages/AdminPage')).AdminPage
+}));
+const LoginPage = lazy(async () => ({
+  default: (await import('./pages/LoginPage')).LoginPage
+}));
+
+const withSuspense = (element: ReactElement) => (
+  <Suspense fallback={<div style={{ padding: '32px' }}>Загрузка...</div>}>
+    {element}
+  </Suspense>
+);
 
 export const router = createBrowserRouter([
   {
@@ -15,17 +39,17 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <LoginPage />
+    element: withSuspense(<LoginPage />)
   },
   {
-    element: <App />,
+    element: withSuspense(<App />),
     children: [
-      { path: '/graph', element: <GraphPage /> },
-      { path: '/stats', element: <StatsPage /> },
-      { path: '/experts', element: <ExpertsPage /> },
-      { path: '/initiatives', element: <InitiativesPage /> },
-      { path: '/tasks', element: <EmployeeTasksPage /> },
-      { path: '/admin', element: <AdminPage /> }
+      { path: '/graph', element: withSuspense(<GraphPage />) },
+      { path: '/stats', element: withSuspense(<StatsPage />) },
+      { path: '/experts', element: withSuspense(<ExpertsPage />) },
+      { path: '/initiatives', element: withSuspense(<InitiativesPage />) },
+      { path: '/tasks', element: withSuspense(<EmployeeTasksPage />) },
+      { path: '/admin', element: withSuspense(<AdminPage />) }
     ]
   }
 ]);

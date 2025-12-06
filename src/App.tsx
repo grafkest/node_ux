@@ -81,17 +81,11 @@ import {
 } from './context/GraphDataContext';
 import { FilterProvider, useFilters } from './context/FilterContext';
 import { ThemeMode, UIProvider, useUI } from './context/UIContext';
-import { GraphContainer, type GraphContainerProps } from './features/graph/GraphContainer';
-import { ExpertsContainer, type ExpertsContainerProps } from './features/experts/ExpertsContainer';
-import {
-  InitiativesContainer,
-  type InitiativesContainerProps
-} from './features/initiatives/InitiativesContainer';
-import {
-  EmployeeTasksContainer,
-  type EmployeeTasksContainerProps
-} from './features/employeeTasks/EmployeeTasksContainer';
-import { AdminContainer, type AdminContainerProps } from './features/admin/AdminContainer';
+import type { GraphContainerProps } from './features/graph/GraphContainer';
+import type { ExpertsContainerProps } from './features/experts/ExpertsContainer';
+import type { InitiativesContainerProps } from './features/initiatives/InitiativesContainer';
+import type { EmployeeTasksContainerProps } from './features/employeeTasks/EmployeeTasksContainer';
+import type { AdminContainerProps } from './features/admin/AdminContainer';
 import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
