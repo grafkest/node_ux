@@ -1715,13 +1715,7 @@ function App() {
         return;
       }
       const module = moduleById[moduleId];
-      if (!module) {
-        return;
-      }
-      if (
-        companyFilter &&
-        !module.userStats.companies.some((company) => company.name === companyFilter)
-      ) {
+      if (!module || !matchesModuleFilters(module)) {
         return;
       }
       extended.push(module);
@@ -1739,7 +1733,8 @@ function App() {
     moduleDependents,
     companyFilter,
     initiativeData,
-    selectedDomains
+    selectedDomains,
+    matchesModuleFilters
   ]);
 
   const graphInitiatives = useMemo(() => {
