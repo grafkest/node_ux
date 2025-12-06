@@ -23,6 +23,16 @@ import {
   initiatives as initialInitiatives,
   modules as initialModules
 } from '../data';
+import type {
+  ArtifactNode,
+  DomainNode,
+  ExpertProfile,
+  Initiative,
+  ModuleNode
+} from '../data';
+import type { ModuleStatus } from '../types/module';
+import { flattenDomainTree } from '../utils/domain';
+import { recalculateReuseScores } from '../utils/module';
 import {
   fetchGraphSnapshot,
   fetchGraphSummaries,
@@ -120,6 +130,30 @@ type GraphContextValue = {
   ) => void;
   isCreatePanelOpen: boolean;
   setIsCreatePanelOpen: (value: boolean) => void;
+  domainData: DomainNode[];
+  setDomainData: (domains: DomainNode[] | ((prev: DomainNode[]) => DomainNode[])) => void;
+  moduleData: ModuleNode[];
+  setModuleData: (modules: ModuleNode[] | ((prev: ModuleNode[]) => ModuleNode[])) => void;
+  artifactData: ArtifactNode[];
+  setArtifactData: (artifacts: ArtifactNode[] | ((prev: ArtifactNode[]) => ArtifactNode[])) => void;
+  initiativeData: Initiative[];
+  setInitiativeData: (initiatives: Initiative[] | ((prev: Initiative[]) => Initiative[])) => void;
+  expertProfiles: ExpertProfile[];
+  setExpertProfiles: (
+    experts: ExpertProfile[] | ((prev: ExpertProfile[]) => ExpertProfile[])
+  ) => void;
+  selectedDomains: Set<string>;
+  setSelectedDomains: (updater: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  statusFilters: Set<ModuleStatus>;
+  setStatusFilters: (updater: Set<ModuleStatus> | ((prev: Set<ModuleStatus>) => Set<ModuleStatus>)) => void;
+  productFilter: string[];
+  setProductFilter: (updater: string[] | ((prev: string[]) => string[])) => void;
+  companyFilter: string | null;
+  setCompanyFilter: (value: string | null) => void;
+  showAllConnections: boolean;
+  setShowAllConnections: (value: boolean) => void;
+  search: string;
+  setSearch: (value: string) => void;
   loadSnapshot: (
     graphId: string,
     options: {
@@ -212,6 +246,21 @@ export function GraphProvider({ children }: PropsWithChildren) {
     { type: 'success' | 'error'; message: string } | null
   >(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
+  const [moduleData, setModuleData] = useState<ModuleNode[]>(() =>
+    recalculateReuseScores(initialModules)
+  );
+  const [artifactData, setArtifactData] = useState<ArtifactNode[]>(initialArtifacts);
+  const [initiativeData, setInitiativeData] = useState<Initiative[]>(initialInitiatives);
+  const [expertProfiles, setExpertProfiles] = useState<ExpertProfile[]>(initialExperts);
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(
+    () => new Set(flattenDomainTree(initialDomainTree).map((domain) => domain.id))
+  );
+  const [statusFilters, setStatusFilters] = useState<Set<ModuleStatus>>(new Set());
+  const [productFilter, setProductFilter] = useState<string[]>([]);
+  const [companyFilter, setCompanyFilter] = useState<string | null>(null);
+  const [showAllConnections, setShowAllConnections] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     graphsRef.current = graphs;
@@ -627,6 +676,28 @@ export function GraphProvider({ children }: PropsWithChildren) {
     setGraphActionStatus,
     isCreatePanelOpen,
     setIsCreatePanelOpen,
+    domainData,
+    setDomainData,
+    moduleData,
+    setModuleData,
+    artifactData,
+    setArtifactData,
+    initiativeData,
+    setInitiativeData,
+    expertProfiles,
+    setExpertProfiles,
+    selectedDomains,
+    setSelectedDomains,
+    statusFilters,
+    setStatusFilters,
+    productFilter,
+    setProductFilter,
+    companyFilter,
+    setCompanyFilter,
+    showAllConnections,
+    setShowAllConnections,
+    search,
+    setSearch,
     loadSnapshot,
     updateActiveGraph,
     loadGraphsList,

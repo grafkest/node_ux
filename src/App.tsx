@@ -43,10 +43,6 @@ import {
 import GraphView, { type GraphNode } from './components/GraphView';
 import NodeDetails from './components/NodeDetails';
 import {
-  artifacts as initialArtifacts,
-  domainTree as initialDomainTree,
-  experts as initialExperts,
-  initiatives as initialInitiatives,
   modules as initialModules,
   reuseIndexHistory,
   type ArtifactNode,
@@ -184,18 +180,42 @@ function AppContent() {
     setGraphActionStatus,
     isCreatePanelOpen,
     setIsCreatePanelOpen,
+    domainData,
+    setDomainData,
+    moduleData,
+    setModuleData,
+    artifactData,
+    setArtifactData,
+    initiativeData,
+    setInitiativeData,
+    expertProfiles,
+    setExpertProfiles,
+    selectedDomains,
+    setSelectedDomains,
+    statusFilters,
+    setStatusFilters,
+    productFilter,
+    setProductFilter,
+    companyFilter,
+    setCompanyFilter,
+    showAllConnections,
+    setShowAllConnections,
+    search,
+    setSearch,
     loadSnapshot,
     updateActiveGraph,
     loadGraphsList,
     persistGraphSnapshot
   } = useGraph();
-  const [domainData, setDomainData] = useState<DomainNode[]>(initialDomainTree);
-  const [moduleData, setModuleDataState] = useState<ModuleNode[]>(() =>
-    recalculateReuseScores(initialModules)
+  const setModuleDataState = useCallback(
+    (next: ModuleNode[] | ((prev: ModuleNode[]) => ModuleNode[])) => {
+      setModuleData((prev) => {
+        const updated = typeof next === 'function' ? (next as (prev: ModuleNode[]) => ModuleNode[])(prev) : next;
+        return recalculateReuseScores(updated);
+      });
+    },
+    [setModuleData]
   );
-  const [artifactData, setArtifactData] = useState<ArtifactNode[]>(initialArtifacts);
-  const [initiativeData, setInitiativeData] = useState<Initiative[]>(initialInitiatives);
-  const [expertProfiles, setExpertProfiles] = useState(initialExperts);
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
@@ -208,14 +228,6 @@ function AppContent() {
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
-  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(
-    () => new Set(flattenDomainTree(initialDomainTree).map((domain) => domain.id))
-  );
-  const [search, setSearch] = useState('');
-  const [statusFilters, setStatusFilters] = useState<Set<ModuleStatus>>(new Set(allStatuses));
-  const [productFilter, setProductFilter] = useState<string[]>(initialProducts);
-  const [companyFilter, setCompanyFilter] = useState<string | null>(null);
-  const [showAllConnections, setShowAllConnections] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [isDomainTreeOpen, setIsDomainTreeOpen] = useState(false);
@@ -437,6 +449,18 @@ function AppContent() {
 
   const products = useMemo(() => buildProductList(moduleData), [moduleData]);
   const companies = useMemo(() => buildCompanyList(moduleData), [moduleData]);
+
+  useEffect(() => {
+    if (statusFilters.size === 0) {
+      setStatusFilters(new Set(allStatuses));
+    }
+  }, [setStatusFilters, statusFilters.size]);
+
+  useEffect(() => {
+    if (productFilter.length === 0 && products.length > 0) {
+      setProductFilter(products);
+    }
+  }, [productFilter.length, products, setProductFilter]);
 
   useEffect(() => {
     if (companyFilter && !companies.includes(companyFilter)) {
@@ -3278,14 +3302,10 @@ function AppContent() {
               onToggleDomainTree={() => setIsDomainTreeOpen((prev) => !prev)}
               areFiltersOpen={areFiltersOpen}
               onToggleFilters={() => setAreFiltersOpen((prev) => !prev)}
-              domainData={domainData}
-              selectedDomains={selectedDomains}
               onToggleDomain={handleDomainToggle}
               domainDescendants={domainDescendants}
-              search={search}
               onSearchChange={handleSearchChange}
               allStatuses={allStatuses}
-              statusFilters={statusFilters}
               onStatusToggle={(status) => {
                 setSelectedNode(null);
                 setStatusFilters((prev) => {
@@ -3299,18 +3319,15 @@ function AppContent() {
                 });
               }}
               products={products}
-              productFilter={productFilter}
               onProductFilterChange={(nextProducts) => {
                 setSelectedNode(null);
                 setProductFilter(nextProducts);
               }}
               companies={companies}
-              companyFilter={companyFilter}
               onCompanyChange={(nextCompany) => {
                 setSelectedNode(null);
                 setCompanyFilter(nextCompany);
               }}
-              showAllConnections={showAllConnections}
               onToggleConnections={(value) => setShowAllConnections(value)}
               graphModules={graphModules}
               graphDomains={graphDomains}
@@ -3321,8 +3338,6 @@ function AppContent() {
               onSelectNode={handleSelectNode}
               selectedNode={selectedNode}
               visibleDomainIds={relevantDomainIds}
-              layoutPositions={layoutPositions}
-              layoutNormalizationRequest={layoutNormalizationRequest}
               onLayoutChange={handleLayoutChange}
               shouldShowAnalytics={shouldShowAnalytics}
               filteredModules={filteredModules}

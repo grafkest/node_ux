@@ -12,6 +12,7 @@ import styles from '../../App.module.css';
 import type { ArtifactNode, DomainNode, GraphLink, Initiative, ModuleNode } from '../../data';
 import type { ExpertProfile, GraphLayoutNodePosition } from '../../types/graph';
 import type { ModuleStatus } from '../../types/module';
+import { useGraph } from '../../context/GraphContext';
 
 export type GraphContainerProps = {
   isActive: boolean;
@@ -22,22 +23,15 @@ export type GraphContainerProps = {
   onToggleDomainTree: () => void;
   areFiltersOpen: boolean;
   onToggleFilters: () => void;
-  domainData: DomainNode[];
-  selectedDomains: Set<string>;
   onToggleDomain: (id: string) => void;
   domainDescendants: Map<string, string[]>;
-  search: string;
   onSearchChange: (value: string) => void;
   allStatuses: ModuleStatus[];
-  statusFilters: Set<ModuleStatus>;
   onStatusToggle: (status: ModuleStatus) => void;
   products: string[];
-  productFilter: string[];
   onProductFilterChange: (products: string[]) => void;
   companies: string[];
-  companyFilter: string | null;
   onCompanyChange: (value: string | null) => void;
-  showAllConnections: boolean;
   onToggleConnections: (value: boolean) => void;
   graphModules: ModuleNode[];
   graphDomains: DomainNode[];
@@ -48,8 +42,6 @@ export type GraphContainerProps = {
   onSelectNode: (node: GraphNode | null) => void;
   selectedNode: GraphNode | null;
   visibleDomainIds: Set<string>;
-  layoutPositions: Record<string, GraphLayoutNodePosition>;
-  layoutNormalizationRequest: number;
   onLayoutChange: (positions: Record<string, GraphLayoutNodePosition>) => void;
   shouldShowAnalytics: boolean;
   filteredModules: ModuleNode[];
@@ -69,22 +61,15 @@ export function GraphContainer({
   onToggleDomainTree,
   areFiltersOpen,
   onToggleFilters,
-  domainData,
-  selectedDomains,
   onToggleDomain,
   domainDescendants,
-  search,
   onSearchChange,
   allStatuses,
-  statusFilters,
   onStatusToggle,
   products,
-  productFilter,
   onProductFilterChange,
   companies,
-  companyFilter,
   onCompanyChange,
-  showAllConnections,
   onToggleConnections,
   graphModules,
   graphDomains,
@@ -95,8 +80,6 @@ export function GraphContainer({
   onSelectNode,
   selectedNode,
   visibleDomainIds,
-  layoutPositions,
-  layoutNormalizationRequest,
   onLayoutChange,
   shouldShowAnalytics,
   filteredModules,
@@ -106,6 +89,17 @@ export function GraphContainer({
   expertProfiles,
   onNavigate
 }: GraphContainerProps) {
+  const {
+    domainData,
+    selectedDomains,
+    search,
+    statusFilters,
+    productFilter,
+    companyFilter,
+    showAllConnections,
+    layoutPositions,
+    layoutNormalizationRequest
+  } = useGraph();
   return (
     <motion.main
       className={styles.main}
