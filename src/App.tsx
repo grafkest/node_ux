@@ -7,8 +7,6 @@ import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import AnalyticsPanel from './components/AnalyticsPanel';
-import DomainTree from './components/DomainTree';
 import AdminPanel, {
   type ArtifactDraftPayload,
   type DomainDraftPayload,
@@ -17,7 +15,6 @@ import AdminPanel, {
   type ModuleDraftPrefillRequest,
   type UserDraftPayload
 } from './components/AdminPanel';
-import FiltersPanel from './components/FiltersPanel';
 import {
   type GraphDataScope,
   type GraphLayoutNodePosition,
@@ -29,8 +26,7 @@ import {
   deleteGraph as deleteGraphRequest,
   importGraphFromSource
 } from './services/graphStorage';
-import GraphView, { type GraphNode } from './components/GraphView';
-import NodeDetails from './components/NodeDetails';
+import type { GraphNode } from './features/graph/components/GraphView';
 import {
   modules as initialModules,
   reuseIndexHistory,

@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState, type PropsWithChildren } 
 import { flattenDomainTree } from '../utils/domain';
 import { domainTree as initialDomainTree } from '../data';
 import type { ModuleStatus } from '../types/module';
-import type { GraphNode } from '../components/GraphView';
+import type { GraphNode } from '../features/graph/components/GraphView';
 
 type FilterContextValue = {
   search: string;

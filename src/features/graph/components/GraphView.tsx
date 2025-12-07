@@ -22,8 +22,8 @@ import type {
   Initiative,
   ModuleNode,
   ModuleStatus
-} from '../data';
-import type { GraphLayoutNodePosition } from '../types/graph';
+} from '../../data';
+import type { GraphLayoutNodePosition } from '../../types/graph';
 import styles from './GraphView.module.css';
 
 const CAMERA_STORAGE_KEY = 'graph-view:camera-main';

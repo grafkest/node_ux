@@ -29,7 +29,7 @@
 3.  **Создание компонентов-страниц**
     *   Создать папку `src/pages`.
     *   Создать обертки для основных разделов:
-        *   `src/pages/GraphPage.tsx` (содержит `GraphView` и сайдбары)
+        *   `src/features/graph/GraphPage.tsx` (содержит `GraphView` и сайдбары)
         *   `src/pages/AdminPage.tsx` (содержит `AdminPanel`)
         *   и т.д.
 

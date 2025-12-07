@@ -5,7 +5,7 @@ const App = lazy(async () => ({
   default: (await import('./App')).default
 }));
 const GraphPage = lazy(async () => ({
-  default: (await import('./pages/GraphPage')).GraphPage
+  default: (await import('./features/graph/GraphPage')).GraphPage
 }));
 const StatsPage = lazy(async () => ({
   default: (await import('./pages/StatsPage')).StatsPage
