@@ -27,6 +27,7 @@ import type { GraphLayoutNodePosition } from '../../types/graph';
 import styles from './GraphView.module.css';
 
 const CAMERA_STORAGE_KEY = 'graph-view:camera-main';
+const LAYOUT_EPSILON = 0.05;
 
 type GraphNode =
   | ({ type: 'module' } & ModuleNode)
@@ -154,6 +155,7 @@ const GraphView: React.FC<GraphViewProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const nodeCacheRef = useRef<Map<string, ForceNode>>(new Map());
+  const layoutPositionsRef = useRef<Record<string, GraphLayoutNodePosition>>(layoutPositions);
   const lastReportedLayoutRef = useRef<string>('');
   const cameraStateRef = useRef<CameraState | null>(initialCameraState);
   const captureTimeoutRef = useRef<number | null>(null);
@@ -194,6 +196,10 @@ const GraphView: React.FC<GraphViewProps> = ({
   }, [theme, themeClassNames]);
 
   useEffect(() => {
+    layoutPositionsRef.current = layoutPositions;
+  }, [layoutPositions]);
+
+  useEffect(() => {
     nodeCacheRef.current.clear();
     graphRef.current = null;
     cameraStateRef.current = initialCameraState;
@@ -214,8 +220,11 @@ const GraphView: React.FC<GraphViewProps> = ({
   }, [palette, refreshGraphInstance]);
 
   useEffect(() => {
-    lastReportedLayoutRef.current = JSON.stringify(layoutPositions ?? {});
-  }, [layoutPositions]);
+    const layoutSnapshot = layoutPositionsRef.current;
+    nodeCacheRef.current.forEach((node) => applyLayoutPosition(node, layoutSnapshot));
+    lastReportedLayoutRef.current = JSON.stringify(layoutSnapshot ?? {});
+    refreshGraphInstance();
+  }, [layoutPositions, refreshGraphInstance]);
 
   const updateViewportSize = useCallback((width: number, height: number) => {
     const normalizedWidth = Math.max(0, Math.round(width));
@@ -334,6 +343,7 @@ const GraphView: React.FC<GraphViewProps> = ({
   );
 
   const nodes = useMemo(() => {
+    const layoutSnapshot = layoutPositionsRef.current;
     const targetIds = new Set(
       domainNodes
         .map((node) => node.id)
@@ -354,13 +364,13 @@ const GraphView: React.FC<GraphViewProps> = ({
       const cached = nodeCacheRef.current.get(node.id);
       if (cached && cached.type === node.type) {
         Object.assign(cached, node);
-        applyLayoutPosition(cached, layoutPositions);
+        applyLayoutPosition(cached, layoutSnapshot);
         nextNodes.push(cached);
         return;
       }
 
       const hydratedNode = { ...node } as ForceNode;
-      applyLayoutPosition(hydratedNode, layoutPositions);
+      applyLayoutPosition(hydratedNode, layoutSnapshot);
       nodeCacheRef.current.set(node.id, hydratedNode);
       nextNodes.push(hydratedNode);
     };
@@ -371,7 +381,7 @@ const GraphView: React.FC<GraphViewProps> = ({
     initiativeNodes.forEach(upsertNode);
 
     return nextNodes;
-  }, [domainNodes, artifactNodes, moduleNodes, initiativeNodes, layoutPositions]);
+  }, [domainNodes, artifactNodes, moduleNodes, initiativeNodes]);
 
   const graphLinks = useMemo<ForceLink[]>(
     () => links.map((link) => ({ ...link })),
@@ -927,13 +937,22 @@ const GraphView: React.FC<GraphViewProps> = ({
         entries.push([id, payload]);
       });
 
-      const serialized = JSON.stringify(Object.fromEntries(entries));
-      if (serialized === lastReportedLayoutRef.current) {
+      const layoutSnapshot = layoutPositionsRef.current;
+      const meaningfulEntries = entries.filter(([id, payload]) => {
+        const previous = layoutSnapshot[id];
+        return hasMeaningfulLayoutDiff(previous, payload, LAYOUT_EPSILON);
+      });
+
+      if (meaningfulEntries.length === 0) {
         return;
       }
 
-      lastReportedLayoutRef.current = serialized;
-      onLayoutChange(Object.fromEntries(entries), reason);
+      const updatePayload = Object.fromEntries(meaningfulEntries);
+      const nextLayout = { ...layoutSnapshot, ...updatePayload };
+
+      layoutPositionsRef.current = nextLayout;
+      lastReportedLayoutRef.current = JSON.stringify(nextLayout);
+      onLayoutChange(updatePayload, reason);
     },
     [nodes, onLayoutChange]
   );
@@ -954,7 +973,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       }
 
       if (node && typeof node.id === 'string') {
-        const layout = layoutPositions[node.id];
+        const layout = layoutPositionsRef.current[node.id];
         const hasFixedX = typeof layout?.fx === 'number' && Number.isFinite(layout.fx);
         const hasFixedY = typeof layout?.fy === 'number' && Number.isFinite(layout.fy);
 
@@ -1003,12 +1022,57 @@ const GraphView: React.FC<GraphViewProps> = ({
 
       emitLayoutUpdate('drag');
     },
-    [emitLayoutUpdate, layoutPositions, onSelect]
+    [emitLayoutUpdate, onSelect]
   );
 
   const handleEngineStop = useCallback(() => {
     emitLayoutUpdate('engine');
   }, [emitLayoutUpdate]);
+
+  const getNodeLabel = useCallback((node: ForceNode) => node.name ?? node.id, []);
+
+  const getLinkColor = useCallback(
+    (link: ForceLink) =>
+      resolveLinkColor(link, palette, visibleDomainIds, visibleModuleStatuses, moduleStatusMap),
+    [moduleStatusMap, palette, visibleDomainIds, visibleModuleStatuses]
+  );
+
+  const renderNode = useCallback(
+    (node: ForceNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      drawNode(node, ctx, globalScale, highlightedNode, palette, visibleDomainIds, visibleModuleStatuses);
+    },
+    [highlightedNode, palette, visibleDomainIds, visibleModuleStatuses]
+  );
+
+  const getNodeCanvasMode = useCallback(() => 'replace', []);
+
+  const handleNodeClick = useCallback(
+    (node: NodeObject) => {
+      onSelect(node as ForceNode);
+    },
+    [onSelect]
+  );
+
+  const handleNodeDoubleClickWrapper = useCallback(
+    (node: NodeObject) => {
+      handleNodeDoubleClick(node as ForceNode);
+    },
+    [handleNodeDoubleClick]
+  );
+
+  const handleNodeDragStartWrapper = useCallback(
+    (node: NodeObject) => {
+      handleNodeDragStart(node as ForceNode);
+    },
+    [handleNodeDragStart]
+  );
+
+  const handleNodeDragEndWrapper = useCallback(
+    (node: NodeObject) => {
+      handleNodeDragEnd(node as ForceNode);
+    },
+    [handleNodeDragEnd]
+  );
 
   return (
     <div ref={containerRef} className={styles.container}>
@@ -1051,35 +1115,17 @@ const GraphView: React.FC<GraphViewProps> = ({
               width={dimensions.width || 600}
               height={dimensions.height || 400}
               graphData={graphData}
-              nodeLabel={(node: ForceNode) => node.name ?? node.id}
-              linkColor={(link: ForceLink) =>
-                resolveLinkColor(link, palette, visibleDomainIds, visibleModuleStatuses, moduleStatusMap)
-              }
+              nodeLabel={getNodeLabel}
+              linkColor={getLinkColor}
               linkDirectionalParticles={(link: ForceLink) => (link.type === 'produces' || link.type === 'consumes' ? 2 : 0)}
               linkDirectionalParticleSpeed={(link: ForceLink) => (link.type === 'produces' ? 0.005 : 0.005)}
               linkDirectionalParticleWidth={3}
-              nodeCanvasObject={(node: ForceNode, ctx, globalScale) => {
-                drawNode(
-                  node,
-                  ctx,
-                  globalScale,
-                  highlightedNode,
-                  palette,
-                  visibleDomainIds,
-                  visibleModuleStatuses
-                );
-              }}
-              nodeCanvasObjectMode={() => 'replace'}
-              onNodeClick={(node) => {
-                onSelect(node as ForceNode);
-              }}
-              onNodeDoubleClick={(node) => {
-                handleNodeDoubleClick(node as ForceNode);
-              }}
-              onNodeDragStart={(node) => {
-                handleNodeDragStart(node as ForceNode);
-              }}
-              onNodeDragEnd={handleNodeDragEnd}
+              nodeCanvasObject={renderNode}
+              nodeCanvasObjectMode={getNodeCanvasMode}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClickWrapper}
+              onNodeDragStart={handleNodeDragStartWrapper}
+              onNodeDragEnd={handleNodeDragEndWrapper}
               onEngineStop={handleEngineStop}
               onZoom={handleZoomTransform}
               onZoomEnd={handleZoomEnd}
@@ -1092,6 +1138,8 @@ const GraphView: React.FC<GraphViewProps> = ({
     </div>
   );
 };
+
+const MemoizedGraphView = React.memo(GraphView);
 
 function applyLayoutPosition(
   node: ForceNode,
@@ -1145,6 +1193,39 @@ function resolveCoordinate(
   }
 
   return null;
+}
+
+function hasCoordinateDelta(
+  previous: number | undefined,
+  next: number | undefined,
+  epsilon: number
+): boolean {
+  if (previous === undefined && next === undefined) {
+    return false;
+  }
+
+  if (previous === undefined || next === undefined) {
+    return true;
+  }
+
+  return Math.abs(previous - next) > epsilon;
+}
+
+function hasMeaningfulLayoutDiff(
+  previous: GraphLayoutNodePosition | undefined,
+  next: GraphLayoutNodePosition,
+  epsilon: number
+): boolean {
+  if (!previous) {
+    return true;
+  }
+
+  return (
+    hasCoordinateDelta(previous.x, next.x, epsilon) ||
+    hasCoordinateDelta(previous.y, next.y, epsilon) ||
+    hasCoordinateDelta(previous.fx, next.fx, epsilon) ||
+    hasCoordinateDelta(previous.fy, next.fy, epsilon)
+  );
 }
 
 function flattenDomains(domains: DomainNode[], visibleDomainIds?: Set<string>): DomainNode[] {
@@ -1651,4 +1732,4 @@ const DEFAULT_PALETTE: GraphPalette = {
 };
 
 export type { GraphNode };
-export default GraphView;
+export default MemoizedGraphView;
