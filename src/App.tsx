@@ -7,14 +7,14 @@ import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import AdminPanel, {
-  type ArtifactDraftPayload,
-  type DomainDraftPayload,
-  type ExpertDraftPayload,
-  type ModuleDraftPayload,
-  type ModuleDraftPrefillRequest,
-  type UserDraftPayload
-} from './components/AdminPanel';
+import type {
+  ArtifactDraftPayload,
+  DomainDraftPayload,
+  ExpertDraftPayload,
+  ModuleDraftPayload,
+  ModuleDraftPrefillRequest,
+  UserDraftPayload
+} from './features/admin/types';
 import {
   type GraphDataScope,
   type GraphLayoutNodePosition,
@@ -82,6 +82,7 @@ import type { ExpertsContainerProps } from './features/experts/ExpertsContainer'
 import type { InitiativesContainerProps } from './features/initiatives/InitiativesContainer';
 import type { EmployeeTasksContainerProps } from './features/employeeTasks/EmployeeTasksContainer';
 import type { AdminContainerProps } from './features/admin/AdminContainer';
+import { useAdminActions } from './features/admin/services/useAdminActions';
 import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
@@ -238,7 +239,6 @@ function AppContent() {
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
-  const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
   const [statsActivated, setStatsActivated] = useState(false);
   const hasPrefetchedStats = useRef(false);
   useEffect(() => {
@@ -299,82 +299,7 @@ function AppContent() {
   );
 
 
-  const fetchUsers = useCallback(() => {
-    if (!user || user.role !== 'admin') return;
-    fetch('/api/users')
-      .then((res) => res.json())
-      .then((data) => setUsers(data))
-      .catch((err) => console.error('Failed to fetch users', err));
-  }, [user]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-
-  const handleCreateUser = useCallback(
-    (draft: UserDraftPayload) => {
-      fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft)
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to create user');
-          return res.json();
-        })
-        .then(() => {
-          fetchUsers();
-          showAdminNotice('success', 'Пользователь успешно создан');
-        })
-        .catch((err) => {
-          console.error(err);
-          showAdminNotice('error', 'Не удалось создать пользователя');
-        });
-    },
-    [fetchUsers, showAdminNotice]
-  );
-
-  const handleUpdateUser = useCallback(
-    (id: string, draft: UserDraftPayload) => {
-      fetch(`/api/users/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft)
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to update user');
-          return res.json();
-        })
-        .then(() => {
-          fetchUsers();
-          showAdminNotice('success', 'Пользователь успешно обновлен');
-        })
-        .catch((err) => {
-          console.error(err);
-          showAdminNotice('error', 'Не удалось обновить пользователя');
-        });
-    },
-    [fetchUsers, showAdminNotice]
-  );
-
-  const handleDeleteUser = useCallback(
-    (id: string) => {
-      fetch(`/api/users/${id}`, {
-        method: 'DELETE'
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to delete user');
-          fetchUsers();
-          showAdminNotice('success', 'Пользователь успешно удален');
-        })
-        .catch((err) => {
-          console.error(err);
-          showAdminNotice('error', 'Не удалось удалить пользователя');
-        });
-    },
-    [fetchUsers, showAdminNotice]
-  );
+  const { users, currentUser, onCreateUser, onUpdateUser, onDeleteUser } = useAdminActions(showAdminNotice);
 
   const products = useMemo(() => buildProductList(moduleData), [moduleData]);
   const companies = useMemo(() => buildCompanyList(moduleData), [moduleData]);
@@ -3213,10 +3138,10 @@ function AppContent() {
     onDeleteExpert: handleDeleteExpert,
     onUpdateEmployeeTasks: setEmployeeTasks,
     users,
-    onCreateUser: handleCreateUser,
-    onUpdateUser: handleUpdateUser,
-    onDeleteUser: handleDeleteUser,
-    currentUser: user,
+    onCreateUser,
+    onUpdateUser,
+    onDeleteUser,
+    currentUser: currentUser ?? null,
     graphs,
     activeGraphId,
     onGraphSelect: handleGraphSelect,
