@@ -3177,11 +3177,11 @@ const ExpertForm: React.FC<ExpertFormProps> = ({
   const [planStatus, setPlanStatus] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const skillRegistryVersion = useSkillRegistryVersion();
-  const expertExcelRef = useRef<Promise<typeof import('../utils/expertExcel')> | null>(null);
+  const expertExcelRef = useRef<Promise<typeof import('../../../utils/expertExcel')> | null>(null);
 
   const loadExpertExcel = () => {
     if (!expertExcelRef.current) {
-      expertExcelRef.current = import('../utils/expertExcel');
+      expertExcelRef.current = import('../../../utils/expertExcel');
     }
     return expertExcelRef.current;
   };
