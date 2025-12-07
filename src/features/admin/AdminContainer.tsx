@@ -1,14 +1,16 @@
 import { motion, type Variants } from 'framer-motion';
 
-import AdminPanel, {
+import AdminPanel from './components/AdminPanel';
+import PersistenceControls from './components/PersistenceControls';
+import {
   type ArtifactDraftPayload,
+  type AdminUser,
   type DomainDraftPayload,
   type ExpertDraftPayload,
   type ModuleDraftPayload,
   type ModuleDraftPrefillRequest,
   type UserDraftPayload
-} from '../../components/AdminPanel';
-import GraphPersistenceControls from '../../components/GraphPersistenceControls';
+} from './types';
 import styles from '../../App.module.css';
 import type {
   ArtifactNode,
@@ -49,11 +51,11 @@ export type AdminContainerProps = {
   onUpdateExpert: (id: string, draft: ExpertDraftPayload) => void;
   onDeleteExpert: (id: string) => void;
   onUpdateEmployeeTasks: (tasks: TaskListItem[]) => void;
-  users: Array<{ id: string; username: string; role: 'admin' | 'user' }>;
+  users: AdminUser[];
   onCreateUser: (draft: UserDraftPayload) => void;
   onUpdateUser: (id: string, draft: UserDraftPayload) => void;
   onDeleteUser: (id: string) => void;
-  currentUser: { id: string; username: string; role: 'admin' | 'user' } | null;
+  currentUser: AdminUser | null;
   graphs: GraphSummary[];
   activeGraphId: string | null;
   onGraphSelect: (graphId: string | null) => void;
@@ -132,7 +134,7 @@ export function AdminContainer({
       animate={isActive ? 'visible' : 'hidden'}
       variants={pageVariants}
     >
-      <GraphPersistenceControls
+      <PersistenceControls
         modules={modules}
         domains={domains}
         artifacts={artifacts}
