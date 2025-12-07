@@ -255,7 +255,23 @@
 
 @media (max-width: 1440px) {
   .main {
-    grid-template-columns: 280px 1fr 320px;
+    grid-template-columns: 240px 1fr 280px;
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 1366px) {
+  .sidebar {
+    padding: 12px;
+  }
+
+  .sidebarScrollArea {
+    gap: 12px;
+  }
+
+  .analytics {
+    padding: 12px;
   }
 }
 
