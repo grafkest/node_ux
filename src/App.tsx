@@ -1,23 +1,12 @@
-import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
-
-// ... (lines 2-3500 remain unchanged, but I can't skip them in replace_file_content unless I target specific blocks)
-// I will target the import line and the variants definition separately.
 
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import DomainTree from './components/DomainTree';
 import AdminPanel, {
@@ -82,29 +71,26 @@ import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import { useAuth } from './context/AuthContext';
 import {
-  GraphProvider,
+  GraphDataProvider,
   buildDefaultGraphCopyOptions,
   buildLocalSnapshot,
-  useGraph,
+  useGraphData,
   LOCAL_GRAPH_ID,
   LOCAL_GRAPH_SUMMARY,
   STORAGE_KEY_ACTIVE_GRAPH_ID
-} from './context/GraphContext';
-import Login from './components/Login';
-import { GraphContainer } from './features/graph/GraphContainer';
-import { ExpertsContainer } from './features/experts/ExpertsContainer';
-import { InitiativesContainer } from './features/initiatives/InitiativesContainer';
-import { EmployeeTasksContainer } from './features/employeeTasks/EmployeeTasksContainer';
-import { AdminContainer } from './features/admin/AdminContainer';
+} from './context/GraphDataContext';
+import { FilterProvider, useFilters } from './context/FilterContext';
+import { ThemeMode, UIProvider, useUI } from './context/UIContext';
+import type { GraphContainerProps } from './features/graph/GraphContainer';
+import type { ExpertsContainerProps } from './features/experts/ExpertsContainer';
+import type { InitiativesContainerProps } from './features/initiatives/InitiativesContainer';
+import type { EmployeeTasksContainerProps } from './features/employeeTasks/EmployeeTasksContainer';
+import type { AdminContainerProps } from './features/admin/AdminContainer';
 import { ThemeContainer } from './features/theme/ThemeContainer';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
 const MAX_LAYOUT_SPAN = 1800;
-
-const StatsDashboard = lazy(async () => ({
-  default: (await import('./components/StatsDashboard')).default
-}));
 
 const viewTabs = [
   { label: 'Связи', value: 'graph' },
@@ -116,12 +102,51 @@ const viewTabs = [
 ] as const;
 
 type ViewMode = (typeof viewTabs)[number]['value'];
-type ThemeMode = 'light' | 'dark';
-
 type AdminNotice = {
   id: number;
   type: 'success' | 'error';
   message: string;
+};
+
+const VIEW_TO_PATH: Record<ViewMode, string> = {
+  graph: '/graph',
+  stats: '/stats',
+  experts: '/experts',
+  initiatives: '/initiatives',
+  'employee-tasks': '/tasks',
+  admin: '/admin'
+};
+
+const PATH_TO_VIEW: Record<string, ViewMode> = {
+  '': 'graph',
+  graph: 'graph',
+  stats: 'stats',
+  experts: 'experts',
+  initiatives: 'initiatives',
+  tasks: 'employee-tasks',
+  admin: 'admin'
+};
+
+const getViewModeFromPath = (pathname: string): ViewMode => {
+  const [_, maybeView] = pathname.split('/');
+  return PATH_TO_VIEW[maybeView as keyof typeof PATH_TO_VIEW] ?? 'graph';
+};
+
+type StatsPageProps = {
+  pageVariants: Variants;
+  modules: ModuleNode[];
+  domains: DomainNode[];
+  artifacts: ArtifactNode[];
+  reuseHistory: typeof reuseIndexHistory;
+};
+
+export type AppOutletContext = {
+  graphPageProps: GraphContainerProps;
+  statsPageProps: StatsPageProps;
+  expertsPageProps: ExpertsContainerProps;
+  initiativesPageProps: InitiativesContainerProps;
+  employeeTasksPageProps: EmployeeTasksContainerProps;
+  adminPageProps: AdminContainerProps;
 };
 
 const GRAPH_UNAVAILABLE_MESSAGE =
@@ -132,6 +157,8 @@ const isAnalyticsPanelEnabled =
 
 function AppContent() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     graphs,
     activeGraphId,
@@ -165,8 +192,6 @@ function AppContent() {
     setIsGraphActionInProgress,
     graphActionStatus,
     setGraphActionStatus,
-    isCreatePanelOpen,
-    setIsCreatePanelOpen,
     domainData,
     setDomainData,
     moduleData,
@@ -177,6 +202,12 @@ function AppContent() {
     setInitiativeData,
     expertProfiles,
     setExpertProfiles,
+    loadSnapshot,
+    updateActiveGraph,
+    loadGraphsList,
+    persistGraphSnapshot
+  } = useGraphData();
+  const {
     selectedDomains,
     setSelectedDomains,
     statusFilters,
@@ -189,28 +220,39 @@ function AppContent() {
     setShowAllConnections,
     search,
     setSearch,
-    loadSnapshot,
-    updateActiveGraph,
-    loadGraphsList,
-    persistGraphSnapshot
-  } = useGraph();
+    selectedNode,
+    setSelectedNode
+  } = useFilters();
+  const {
+    themeMode,
+    setThemeMode,
+    sidebarRef,
+    sidebarBaseHeight,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    setIsDomainTreeOpen,
+    areFiltersOpen,
+    setAreFiltersOpen,
+    adminNotice,
+    showAdminNotice,
+    dismissAdminNotice,
+    isCreatePanelOpen,
+    setIsCreatePanelOpen
+  } = useUI();
   const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
     loadStoredTasks() ?? initialEmployeeTasks
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
+  const [statsActivated, setStatsActivated] = useState(false);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('graph');
-  const [isDomainTreeOpen, setIsDomainTreeOpen] = useState(false);
-  const [areFiltersOpen, setAreFiltersOpen] = useState(true);
-  const sidebarRef = useRef<HTMLDivElement | null>(null);
-  const [sidebarBaseHeight, setSidebarBaseHeight] = useState<number | null>(null);
-  const [adminNotice, setAdminNotice] = useState<AdminNotice | null>(null);
+  const viewMode = useMemo(() => getViewModeFromPath(location.pathname), [location.pathname]);
+  const navigateToView = useCallback(
+    (view: ViewMode) => navigate(VIEW_TO_PATH[view] ?? VIEW_TO_PATH.graph),
+    [navigate]
+  );
   const highlightedDomainId = selectedNode?.type === 'domain' ? selectedNode.id : null;
-  const [statsActivated, setStatsActivated] = useState(() => viewMode === 'stats');
-  const adminNoticeIdRef = useRef(0);
   const moduleDraftPrefillIdRef = useRef(0);
   const [moduleDraftPrefill, setModuleDraftPrefill] = useState<ModuleDraftPrefillRequest | null>(null);
   const handleModuleDraftPrefillApplied = useCallback(() => {
@@ -220,11 +262,6 @@ function AppContent() {
     () => ({ nodes: layoutPositions }),
     [layoutPositions]
   );
-  const sidebarMaxHeight = useMemo(
-    () => (sidebarBaseHeight ? sidebarBaseHeight * 2 : null),
-    [sidebarBaseHeight]
-  );
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 
   const visibleMenuItems = useMemo(() => {
     if (!user) return [];
@@ -236,25 +273,9 @@ function AppContent() {
     });
   }, [user]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('app-theme');
-    if (saved === 'light') {
-      setThemeMode('light');
-      return;
-    }
-
-    if (saved !== 'light') {
-      localStorage.setItem('app-theme', 'light');
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('app-theme', themeMode);
-  }, [themeMode]);
-
   const handleSetThemeMode = useCallback((mode: ThemeMode) => {
     setThemeMode(mode);
-  }, []);
+  }, [setThemeMode]);
 
 
   const handleGraphSourceIdChange = useCallback(
@@ -281,49 +302,6 @@ function AppContent() {
   );
 
 
-  useLayoutEffect(() => {
-    const element = sidebarRef.current;
-    if (!element) {
-      return;
-    }
-
-    const measure = () => {
-      const target = sidebarRef.current;
-      if (!target) {
-        return;
-      }
-
-      if (isDomainTreeOpen) {
-        return;
-      }
-
-      if (!areFiltersOpen) {
-        return;
-      }
-
-      const height = Math.max(target.getBoundingClientRect().height, 0);
-      if (height < 1) {
-        return;
-      }
-      setSidebarBaseHeight((prev) => {
-        if (prev === null || Math.abs(prev - height) > 0.5) {
-          return height;
-        }
-
-        return prev;
-      });
-    };
-
-    measure();
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isDomainTreeOpen, areFiltersOpen]);
-
   const fetchUsers = useCallback(() => {
     if (!user || user.role !== 'admin') return;
     fetch('/api/users')
@@ -336,18 +314,6 @@ function AppContent() {
     fetchUsers();
   }, [fetchUsers]);
 
-
-  const showAdminNotice = useCallback(
-    (type: AdminNotice['type'], message: string) => {
-      adminNoticeIdRef.current += 1;
-      setAdminNotice({ id: adminNoticeIdRef.current, type, message });
-    },
-    []
-  );
-
-  const dismissAdminNotice = useCallback(() => {
-    setAdminNotice(null);
-  }, []);
 
   const handleCreateUser = useCallback(
     (draft: UserDraftPayload) => {
@@ -826,7 +792,7 @@ function AppContent() {
         return { ...current, status: 'converted', lastUpdated: new Date().toISOString() };
       });
 
-      setViewMode('admin');
+      navigateToView('admin');
       showAdminNotice(
         'success',
         `Команда инициативы «${initiative.name}» передана в черновик модуля.`
@@ -837,7 +803,7 @@ function AppContent() {
       expertProfiles,
       moduleData,
       patchInitiative,
-      setViewMode,
+      navigateToView,
       showAdminNotice,
       setModuleDraftPrefill
     ]
@@ -1604,6 +1570,25 @@ function AppContent() {
     }
   }, [statsActivated, viewMode]);
 
+  useEffect(() => {
+    if (hasPrefetchedStats.current) return;
+
+    hasPrefetchedStats.current = true;
+
+    const prefetch = () => {
+      import('./pages/StatsPage');
+      import('./components/StatsDashboard');
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as typeof window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(
+        prefetch
+      );
+    } else {
+      setTimeout(prefetch, 500);
+    }
+  }, []);
+
   const handleSelectNode = (node: GraphNode | null) => {
     setSelectedNode(node);
   };
@@ -1821,7 +1806,7 @@ function AppContent() {
       if (createdModule) {
         setSelectedNode({ ...createdModule, type: 'module' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       if (createdModule) {
         showAdminNotice('success', `Модуль «${createdModule.name}» создан.`);
       }
@@ -1829,6 +1814,7 @@ function AppContent() {
     [
       defaultDomainId,
       attachableDomainIdSet,
+      navigateToView,
       markGraphDirty,
       moduleData,
       selectedNode,
@@ -2042,7 +2028,7 @@ function AppContent() {
       if (!draft.isCatalogRoot) {
         setSelectedNode({ ...newDomain, type: 'domain' });
       }
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice(
         'success',
         `${draft.isCatalogRoot ? 'Корневой каталог' : 'Домен'} «${normalizedName}» создан.`
@@ -2291,7 +2277,7 @@ function AppContent() {
         next.add(domainId);
         return next;
       });
-      setViewMode('graph');
+      navigateToView('graph');
       showAdminNotice('success', `Артефакт «${normalizedName}» создан.`);
     },
     [
@@ -3083,7 +3069,7 @@ function AppContent() {
   }, [themeMode]);
 
   if (!user) {
-    return <Login />;
+    return <Navigate to="/login" replace />;
   }
 
   const pageVariants = {
@@ -3103,11 +3089,164 @@ function AppContent() {
     }
   };
 
+  const graphPageProps: GraphContainerProps = {
+    isActive: true,
+    pageVariants,
+    sidebarRef,
+    sidebarMaxHeight,
+    isDomainTreeOpen,
+    onToggleDomainTree: () => setIsDomainTreeOpen((prev) => !prev),
+    areFiltersOpen,
+    onToggleFilters: () => setAreFiltersOpen((prev) => !prev),
+    onToggleDomain: handleDomainToggle,
+    domainDescendants,
+    onSearchChange: handleSearchChange,
+    allStatuses,
+    onStatusToggle: (status) => {
+      setSelectedNode(null);
+      setStatusFilters((prev) => {
+        const next = new Set(prev);
+        if (next.has(status)) {
+          next.delete(status);
+        } else {
+          next.add(status);
+        }
+        return next;
+      });
+    },
+    products,
+    onProductFilterChange: (nextProducts) => {
+      setSelectedNode(null);
+      setProductFilter(nextProducts);
+    },
+    companies,
+    onCompanyChange: (nextCompany) => {
+      setSelectedNode(null);
+      setCompanyFilter(nextCompany);
+    },
+    onToggleConnections: (value) => setShowAllConnections(value),
+    graphModules,
+    graphDomains,
+    graphArtifacts,
+    graphInitiatives,
+    filteredLinks,
+    graphVersion: `${activeGraphId ?? 'local'}:${graphRenderEpoch}`,
+    onSelectNode: handleSelectNode,
+    selectedNode,
+    visibleDomainIds: relevantDomainIds,
+    onLayoutChange: handleLayoutChange,
+    shouldShowAnalytics,
+    filteredModules,
+    domainNameMap,
+    moduleNameMap,
+    artifactNameMap,
+    onNavigate: handleNavigate
+  };
+
+  const statsPageProps: StatsPageProps = {
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    reuseHistory: reuseIndexHistory
+  };
+
+  const expertsPageProps: ExpertsContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    modules: moduleData,
+    moduleNameMap,
+    moduleDomainMap,
+    domainNameMap,
+    initiatives: initiativeData,
+    onUpdateExpertSkills: handleUpdateExpertSkills,
+    onUpdateExpertSoftSkills: handleUpdateExpertSoftSkills
+  };
+
+  const initiativesPageProps: InitiativesContainerProps = {
+    isActive: true,
+    pageVariants,
+    initiatives: initiativeData,
+    experts: expertProfiles,
+    domains: domainData,
+    modules: moduleData,
+    domainNameMap,
+    employeeTasks,
+    onTogglePin: handleToggleInitiativePin,
+    onAddRisk: handleAddInitiativeRisk,
+    onRemoveRisk: handleRemoveInitiativeRisk,
+    onStatusChange: handleInitiativeStatusChange,
+    onExport: handleInitiativeExport,
+    onCreateInitiative: handlePlannerCreateInitiative,
+    onUpdateInitiative: handlePlannerUpdateInitiative
+  };
+
+  const employeeTasksPageProps: EmployeeTasksContainerProps = {
+    isActive: true,
+    pageVariants,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    tasks: employeeTasks,
+    onTasksChange: setEmployeeTasks
+  };
+
+  const adminPageProps: AdminContainerProps = {
+    isActive: true,
+    pageVariants,
+    modules: moduleData,
+    domains: domainData,
+    artifacts: artifactData,
+    experts: expertProfiles,
+    initiatives: initiativeData,
+    employeeTasks,
+    moduleDraftPrefill,
+    onModuleDraftPrefillApplied: handleModuleDraftPrefillApplied,
+    onCreateModule: handleCreateModule,
+    onUpdateModule: handleUpdateModule,
+    onDeleteModule: handleDeleteModule,
+    onCreateDomain: handleCreateDomain,
+    onUpdateDomain: handleUpdateDomain,
+    onDeleteDomain: handleDeleteDomain,
+    onCreateArtifact: handleCreateArtifact,
+    onUpdateArtifact: handleUpdateArtifact,
+    onDeleteArtifact: handleDeleteArtifact,
+    onCreateExpert: handleCreateExpert,
+    onUpdateExpert: handleUpdateExpert,
+    onDeleteExpert: handleDeleteExpert,
+    onUpdateEmployeeTasks: setEmployeeTasks,
+    users,
+    onCreateUser: handleCreateUser,
+    onUpdateUser: handleUpdateUser,
+    onDeleteUser: handleDeleteUser,
+    currentUser: user,
+    graphs,
+    activeGraphId,
+    onGraphSelect: handleGraphSelect,
+    onGraphCreate: handleCreateGraph,
+    onGraphDelete: activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined,
+    isGraphListLoading: isGraphsLoading,
+    syncStatus,
+    layout: layoutSnapshot,
+    isSyncAvailable,
+    onImport: handleImportGraph,
+    onImportFromGraph: handleImportFromExistingGraph,
+    onRetryLoad: handleRetryLoadSnapshot,
+    isReloading: isReloadingSnapshot
+  };
+
+  const outletContext: AppOutletContext = {
+    graphPageProps,
+    statsPageProps,
+    expertsPageProps,
+    initiativesPageProps,
+    employeeTasksPageProps,
+    adminPageProps
+  };
+
   return (
     <ThemeContainer preset={themePreset} themeKey={themeMode}>
       <LayoutShell
-        currentView={viewMode}
-        onViewChange={setViewMode}
         headerTitle={headerTitle}
         headerDescription={headerDescription}
         themeMode={themeMode}
@@ -3161,7 +3300,7 @@ function AppContent() {
         />
 
         {shouldShowInitialLoader ? (
-          <div className={styles.loadingState} style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div className={styles.loadingState}>
             <Loader size="m" />
             <Text size="s" view="secondary">
               Загружаем доступные графы и их содержимое...
@@ -3172,171 +3311,17 @@ function AppContent() {
             {adminNotice && (
               <div
                 key={adminNotice.id}
-                className={`${styles.noticeBanner} ${adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError
-                  }`}
+                className={`${styles.noticeBanner} ${adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError}`}
                 role={adminNotice.type === 'error' ? 'alert' : 'status'}
                 aria-live={adminNotice.type === 'error' ? 'assertive' : 'polite'}
               >
-                <Text
-                  size="s"
-                  view="primary"
-                  className={styles.noticeMessage}
-                >
+                <Text size="s" view="primary" className={styles.noticeMessage}>
                   {adminNotice.message}
                 </Text>
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <GraphContainer
-              isActive={isGraphActive}
-              pageVariants={pageVariants}
-              sidebarRef={sidebarRef}
-              sidebarMaxHeight={sidebarMaxHeight}
-              isDomainTreeOpen={isDomainTreeOpen}
-              onToggleDomainTree={() => setIsDomainTreeOpen((prev) => !prev)}
-              areFiltersOpen={areFiltersOpen}
-              onToggleFilters={() => setAreFiltersOpen((prev) => !prev)}
-              onToggleDomain={handleDomainToggle}
-              domainDescendants={domainDescendants}
-              onSearchChange={handleSearchChange}
-              allStatuses={allStatuses}
-              onStatusToggle={(status) => {
-                setSelectedNode(null);
-                setStatusFilters((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(status)) {
-                    next.delete(status);
-                  } else {
-                    next.add(status);
-                  }
-                  return next;
-                });
-              }}
-              products={products}
-              onProductFilterChange={(nextProducts) => {
-                setSelectedNode(null);
-                setProductFilter(nextProducts);
-              }}
-              companies={companies}
-              onCompanyChange={(nextCompany) => {
-                setSelectedNode(null);
-                setCompanyFilter(nextCompany);
-              }}
-              onToggleConnections={(value) => setShowAllConnections(value)}
-              graphModules={graphModules}
-              graphDomains={graphDomains}
-              graphArtifacts={graphArtifacts}
-              graphInitiatives={graphInitiatives}
-              filteredLinks={filteredLinks}
-              graphVersion={`${activeGraphId ?? 'local'}:${graphRenderEpoch}`}
-              onSelectNode={handleSelectNode}
-              selectedNode={selectedNode}
-              visibleDomainIds={relevantDomainIds}
-              onLayoutChange={handleLayoutChange}
-              shouldShowAnalytics={shouldShowAnalytics}
-              filteredModules={filteredModules}
-              domainNameMap={domainNameMap}
-              moduleNameMap={moduleNameMap}
-              artifactNameMap={artifactNameMap}
-              onNavigate={handleNavigate}
-            />
-            {(statsActivated || isStatsActive) && (
-              <motion.main
-                className={styles.statsMain}
-                initial="hidden"
-                animate={isStatsActive ? 'visible' : 'hidden'}
-                variants={pageVariants}
-              >
-                <Suspense fallback={<Loader size="m" />}>
-                  <StatsDashboard
-                    modules={moduleData}
-                    domains={domainData}
-                    artifacts={artifactData}
-                    reuseHistory={reuseIndexHistory}
-                  />
-                </Suspense>
-              </motion.main>
-            )}
-            <ExpertsContainer
-              isActive={isExpertsActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              modules={moduleData}
-              moduleNameMap={moduleNameMap}
-              moduleDomainMap={moduleDomainMap}
-              domainNameMap={domainNameMap}
-              initiatives={initiativeData}
-              onUpdateExpertSkills={handleUpdateExpertSkills}
-              onUpdateExpertSoftSkills={handleUpdateExpertSoftSkills}
-            />
-            <InitiativesContainer
-              isActive={isInitiativesActive}
-              pageVariants={pageVariants}
-              initiatives={initiativeData}
-              experts={expertProfiles}
-              domains={domainData}
-              modules={moduleData}
-              domainNameMap={domainNameMap}
-              employeeTasks={employeeTasks}
-              onTogglePin={handleToggleInitiativePin}
-              onAddRisk={handleAddInitiativeRisk}
-              onRemoveRisk={handleRemoveInitiativeRisk}
-              onStatusChange={handleInitiativeStatusChange}
-              onExport={handleInitiativeExport}
-              onCreateInitiative={handlePlannerCreateInitiative}
-              onUpdateInitiative={handlePlannerUpdateInitiative}
-            />
-            <EmployeeTasksContainer
-              isActive={isEmployeeTasksActive}
-              pageVariants={pageVariants}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              tasks={employeeTasks}
-              onTasksChange={setEmployeeTasks}
-            />
-            <AdminContainer
-              isActive={isAdminActive}
-              pageVariants={pageVariants}
-              modules={moduleData}
-              domains={domainData}
-              artifacts={artifactData}
-              experts={expertProfiles}
-              initiatives={initiativeData}
-              employeeTasks={employeeTasks}
-              moduleDraftPrefill={moduleDraftPrefill}
-              onModuleDraftPrefillApplied={handleModuleDraftPrefillApplied}
-              onCreateModule={handleCreateModule}
-              onUpdateModule={handleUpdateModule}
-              onDeleteModule={handleDeleteModule}
-              onCreateDomain={handleCreateDomain}
-              onUpdateDomain={handleUpdateDomain}
-              onDeleteDomain={handleDeleteDomain}
-              onCreateArtifact={handleCreateArtifact}
-              onUpdateArtifact={handleUpdateArtifact}
-              onDeleteArtifact={handleDeleteArtifact}
-              onCreateExpert={handleCreateExpert}
-              onUpdateExpert={handleUpdateExpert}
-              onDeleteExpert={handleDeleteExpert}
-              onUpdateEmployeeTasks={setEmployeeTasks}
-              users={users}
-              onCreateUser={handleCreateUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-              currentUser={user}
-              graphs={graphs}
-              activeGraphId={activeGraphId}
-              onGraphSelect={handleGraphSelect}
-              onGraphCreate={handleCreateGraph}
-              onGraphDelete={activeGraphId ? () => handleDeleteGraph(activeGraphId) : undefined}
-              isGraphListLoading={isGraphsLoading}
-              syncStatus={syncStatus}
-              layout={layoutSnapshot}
-              isSyncAvailable={isSyncAvailable}
-              onImport={handleImportGraph}
-              onImportFromGraph={handleImportFromExistingGraph}
-              onRetryLoad={handleRetryLoadSnapshot}
-              isReloading={isReloadingSnapshot}
-            />
+            <Outlet context={outletContext} />
           </>
         )}
       </LayoutShell>
@@ -4218,9 +4203,13 @@ function getLinkEndpointId(value: LinkEndpoint): string {
 
 function App() {
   return (
-    <GraphProvider>
-      <AppContent />
-    </GraphProvider>
+    <UIProvider>
+      <GraphDataProvider>
+        <FilterProvider>
+          <AppContent />
+        </FilterProvider>
+      </GraphDataProvider>
+    </UIProvider>
   );
 }
 
