@@ -2,7 +2,7 @@ import { Checkbox } from '@consta/uikit/Checkbox';
 import { Text } from '@consta/uikit/Text';
 import { IconArrowRight } from '@consta/icons/IconArrowRight';
 import React, { useMemo, useState } from 'react';
-import type { DomainNode } from '../data';
+import type { DomainNode } from '../../data';
 import styles from './DomainTree.module.css';
 import clsx from 'clsx';
 

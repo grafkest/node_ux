@@ -11,7 +11,7 @@ import {
   type ModuleInput,
   type ModuleOutput,
   type TeamMember
-} from '../data';
+} from '../../data';
 import type { GraphNode } from './GraphView';
 import styles from './NodeDetails.module.css';
 

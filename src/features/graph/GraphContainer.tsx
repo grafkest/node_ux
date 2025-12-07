@@ -3,11 +3,11 @@ import { type CSSProperties, type RefObject } from 'react';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Text } from '@consta/uikit/Text';
 
-import AnalyticsPanel from '../../components/AnalyticsPanel';
-import DomainTree from '../../components/DomainTree';
-import FiltersPanel from '../../components/FiltersPanel';
-import GraphView, { type GraphNode } from '../../components/GraphView';
-import NodeDetails from '../../components/NodeDetails';
+import AnalyticsPanel from './components/AnalyticsPanel';
+import DomainTree from './components/DomainTree';
+import FiltersPanel from './components/FiltersPanel';
+import GraphView, { type GraphNode } from './components/GraphView';
+import NodeDetails from './components/NodeDetails';
 import styles from '../../App.module.css';
 import type { ArtifactNode, DomainNode, GraphLink, Initiative, ModuleNode } from '../../data';
 import type { GraphLayoutNodePosition } from '../../types/graph';

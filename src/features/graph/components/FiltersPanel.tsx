@@ -9,7 +9,7 @@ import { IconSearchStroked } from '@consta/icons/IconSearchStroked';
 import clsx from 'clsx';
 import React from 'react';
 import type { ComboboxPropRenderItem } from '@consta/uikit/Combobox';
-import type { ModuleStatus } from '../data';
+import type { ModuleStatus } from '../../data';
 import styles from './FiltersPanel.module.css';
 
 type FiltersPanelProps = {

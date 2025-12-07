@@ -1,7 +1,7 @@
 import { Card } from '@consta/uikit/Card';
 import { Text } from '@consta/uikit/Text';
 import React, { useMemo } from 'react';
-import type { ModuleNode } from '../data';
+import type { ModuleNode } from '../../data';
 import styles from './AnalyticsPanel.module.css';
 
 type AnalyticsPanelProps = {
