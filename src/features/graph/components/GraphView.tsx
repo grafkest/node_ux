@@ -348,7 +348,34 @@ const GraphView: React.FC<GraphViewProps> = ({
     [initiatives]
   );
 
+  const stableNodesRef = useRef<ForceNode[]>([]);
+  const nodesSignatureRef = useRef<string>('');
+
+  const buildNodesSignature = useCallback(() => {
+    const parts: string[] = [];
+
+    const collect = (node: GraphNode) => {
+      const status = 'status' in node ? String((node as ModuleNode).status ?? '') : '';
+      const domainId = 'domainId' in node ? String((node as DomainNode).domainId ?? '') : '';
+      const name = node.name ?? '';
+
+      parts.push(`${node.id}:${node.type}:${status}:${domainId}:${name}`);
+    };
+
+    domainNodes.forEach(collect);
+    artifactNodes.forEach(collect);
+    moduleNodes.forEach(collect);
+    initiativeNodes.forEach(collect);
+
+    return parts.join('|');
+  }, [artifactNodes, domainNodes, initiativeNodes, moduleNodes]);
+
   const nodes = useMemo(() => {
+    const currentSignature = buildNodesSignature();
+    if (currentSignature === nodesSignatureRef.current && stableNodesRef.current.length > 0) {
+      return stableNodesRef.current;
+    }
+
     const layoutSnapshot = layoutPositionsRef.current;
     const targetIds = new Set(
       domainNodes
@@ -386,8 +413,10 @@ const GraphView: React.FC<GraphViewProps> = ({
     moduleNodes.forEach(upsertNode);
     initiativeNodes.forEach(upsertNode);
 
+    nodesSignatureRef.current = currentSignature;
+    stableNodesRef.current = nextNodes;
     return nextNodes;
-  }, [domainNodes, artifactNodes, moduleNodes, initiativeNodes]);
+  }, [artifactNodes, buildNodesSignature, domainNodes, initiativeNodes, moduleNodes]);
 
   const graphLinks = useMemo<ForceLink[]>(
     () => links.map((link) => ({ ...link })),
