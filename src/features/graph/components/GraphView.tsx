@@ -882,7 +882,13 @@ const GraphView: React.FC<GraphViewProps> = ({
       return;
     }
 
-    const node = nodeCacheRef.current.get(highlightedNode);
+    const cachedNode = nodeCacheRef.current.get(highlightedNode);
+    const fallbackNode = graphRef.current
+      ?.graphData?.()
+      ?.nodes?.find((candidate) => candidate.id === highlightedNode) as
+      | ForceNode
+      | undefined;
+    const node = cachedNode ?? fallbackNode;
     if (!node) {
       return;
     }
