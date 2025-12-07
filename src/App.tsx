@@ -60,9 +60,7 @@ import {
   type RolePlanningDraft
 } from './utils/initiativeMatching';
 import { preparePlannerModuleSelections } from './utils/initiativePlanner';
-import { initialEmployeeTasks } from './data/employeeTasks';
 import type { TaskListItem } from './types/tasks';
-import { loadStoredTasks, persistStoredTasks } from './utils/employeeTasks';
 import { LayoutShell, MENU_ITEMS } from './components/LayoutShell';
 import { CreateGraphModal } from './components/CreateGraphModal';
 import { useAuth } from './context/AuthContext';
@@ -84,6 +82,9 @@ import type { EmployeeTasksContainerProps } from './features/employeeTasks/Emplo
 import type { AdminContainerProps } from './features/admin/AdminContainer';
 import { useAdminActions } from './features/admin/services/useAdminActions';
 import { ThemeContainer } from './features/theme/ThemeContainer';
+import { usePersistedEmployeeTasks } from './features/employeeTasks/hooks/usePersistedEmployeeTasks';
+import { useExpertProfileUpdates } from './features/experts/hooks/useExpertProfileUpdates';
+import { useInitiativeActions } from './features/initiatives/hooks/useInitiativeActions';
 
 const allStatuses: ModuleStatus[] = ['production', 'in-dev', 'deprecated'];
 const initialProducts = buildProductList(initialModules);
@@ -236,14 +237,9 @@ function AppContent() {
     isCreatePanelOpen,
     setIsCreatePanelOpen
   } = useUI();
-  const [employeeTasks, setEmployeeTasks] = useState<TaskListItem[]>(() =>
-    loadStoredTasks() ?? initialEmployeeTasks
-  );
+  const { employeeTasks, setEmployeeTasks } = usePersistedEmployeeTasks();
   const [statsActivated, setStatsActivated] = useState(false);
   const hasPrefetchedStats = useRef(false);
-  useEffect(() => {
-    persistStoredTasks(employeeTasks);
-  }, [employeeTasks]);
   const viewMode = useMemo(() => getViewModeFromPath(location.pathname), [location.pathname]);
   const navigateToView = useCallback(
     (view: ViewMode) => navigate(VIEW_TO_PATH[view] ?? VIEW_TO_PATH.graph),
@@ -284,19 +280,7 @@ function AppContent() {
     },
     [setGraphCopyOptions, setGraphSourceIdDraft]
   );
-  const handleUpdateExpertSkills = useCallback((expertId: string, skills: ExpertSkill[]) => {
-    setExpertProfiles((prev) =>
-      prev.map((expert) => (expert.id === expertId ? { ...expert, skills } : expert))
-    );
-  }, []);
-  const handleUpdateExpertSoftSkills = useCallback(
-    (expertId: string, softSkills: string[]) => {
-      setExpertProfiles((prev) =>
-        prev.map((expert) => (expert.id === expertId ? { ...expert, softSkills } : expert))
-      );
-    },
-    []
-  );
+  const { handleUpdateExpertSkills, handleUpdateExpertSoftSkills } = useExpertProfileUpdates();
 
 
   const { users, currentUser, onCreateUser, onUpdateUser, onDeleteUser } = useAdminActions(showAdminNotice);
@@ -505,231 +489,24 @@ function AppContent() {
     hasPendingPersistRef.current = true;
   }, []);
 
-  const patchInitiative = useCallback(
-    (initiativeId: string, updater: (initiative: Initiative) => Initiative) => {
-      let didChange = false;
-      setInitiativeData((prev) =>
-        prev.map((initiative) => {
-          if (initiative.id !== initiativeId) {
-            return initiative;
-          }
-          const next = updater(initiative);
-          if (next !== initiative) {
-            didChange = true;
-          }
-          return next;
-        })
-      );
-      if (didChange) {
-        markGraphDirty();
-      }
-    },
-    [markGraphDirty]
-  );
-
-  const handleToggleInitiativePin = useCallback(
-    (initiativeId: string, roleId: string, expertId: string) => {
-      patchInitiative(initiativeId, (initiative) => {
-        let updated = false;
-        const roles = initiative.roles.map((role) => {
-          if (role.id !== roleId) {
-            return role;
-          }
-          const hasExpert = role.pinnedExpertIds.includes(expertId);
-          let nextPinned = hasExpert
-            ? role.pinnedExpertIds.filter((id) => id !== expertId)
-            : [...role.pinnedExpertIds, expertId];
-          if (!hasExpert && role.required > 0 && nextPinned.length > role.required) {
-            nextPinned = nextPinned.slice(nextPinned.length - role.required);
-          }
-          const pinnedChanged =
-            nextPinned.length !== role.pinnedExpertIds.length ||
-            nextPinned.some((id, index) => role.pinnedExpertIds[index] !== id);
-
-          let workItemsChanged = false;
-          let updatedWorkItems: typeof role.workItems = role.workItems;
-
-          if (role.workItems && role.workItems.length > 0) {
-            const nextWorkItems = role.workItems.map((item, index) => {
-              const nextAssigned =
-                nextPinned.length > 0 ? nextPinned[index % nextPinned.length] : undefined;
-              if (nextAssigned === item.assignedExpertId) {
-                return item;
-              }
-              workItemsChanged = true;
-              return { ...item, assignedExpertId: nextAssigned };
-            });
-            if (workItemsChanged) {
-              updatedWorkItems = nextWorkItems;
-            }
-          }
-
-          if (!pinnedChanged && !workItemsChanged) {
-            return role;
-          }
-          updated = true;
-          return {
-            ...role,
-            pinnedExpertIds: nextPinned,
-            ...(role.workItems ? { workItems: updatedWorkItems } : {})
-          };
-        });
-        if (!updated) {
-          return initiative;
-        }
-        return { ...initiative, roles, lastUpdated: new Date().toISOString() };
-      });
-    },
-    [patchInitiative]
-  );
-
-  const handleAddInitiativeRisk = useCallback(
-    (
-      initiativeId: string,
-      payload: { description: string; severity: Initiative['risks'][number]['severity'] }
-    ) => {
-      const description = payload.description.trim();
-      if (!description) {
-        return;
-      }
-      patchInitiative(initiativeId, (initiative) => {
-        const riskId = `${initiative.id}-risk-${Date.now()}`;
-        const risk = {
-          id: riskId,
-          description,
-          severity: payload.severity,
-          createdAt: new Date().toISOString()
-        } satisfies Initiative['risks'][number];
-        return {
-          ...initiative,
-          risks: [...initiative.risks, risk],
-          lastUpdated: new Date().toISOString()
-        };
-      });
-    },
-    [patchInitiative]
-  );
-
-  const handleRemoveInitiativeRisk = useCallback(
-    (initiativeId: string, riskId: string) => {
-      patchInitiative(initiativeId, (initiative) => {
-        const nextRisks = initiative.risks.filter((risk) => risk.id !== riskId);
-        if (nextRisks.length === initiative.risks.length) {
-          return initiative;
-        }
-        return { ...initiative, risks: nextRisks, lastUpdated: new Date().toISOString() };
-      });
-    },
-    [patchInitiative]
-  );
-
-  const handleInitiativeStatusChange = useCallback(
-    (initiativeId: string, status: Initiative['status']) => {
-      patchInitiative(initiativeId, (initiative) => {
-        if (initiative.status === status) {
-          return initiative;
-        }
-        return { ...initiative, status, lastUpdated: new Date().toISOString() };
-      });
-    },
-    [patchInitiative]
-  );
-
-  const handleInitiativeExport = useCallback(
-    (initiativeId: string) => {
-      const initiative = initiativeData.find((item) => item.id === initiativeId);
-      if (!initiative) {
-        return;
-      }
-      const expertMap = new Map(expertProfiles.map((expert) => [expert.id, expert]));
-      const team: ModuleDraftPayload['projectTeam'] = [];
-
-      initiative.roles.forEach((role) => {
-        const orderedCandidates = [...role.candidates].sort((a, b) => b.score - a.score);
-        const selected = new Set<string>();
-        role.pinnedExpertIds.forEach((id) => {
-          if (expertMap.has(id)) {
-            selected.add(id);
-          }
-        });
-        for (const candidate of orderedCandidates) {
-          if (selected.size >= Math.max(1, role.required)) {
-            break;
-          }
-          if (selected.has(candidate.expertId)) {
-            continue;
-          }
-          if (!expertMap.has(candidate.expertId)) {
-            continue;
-          }
-          selected.add(candidate.expertId);
-        }
-        Array.from(selected).forEach((expertId) => {
-          const expert = expertMap.get(expertId);
-          if (!expert) {
-            return;
-          }
-          team.push({
-            id: `${initiative.id}-${role.id}-${expertId}`,
-            fullName: expert.fullName,
-            role: role.role
-          });
-        });
-      });
-
-      const moduleCandidates = [
-        ...initiative.plannedModuleIds,
-        ...initiative.potentialModules
-      ];
-      const linkedModule = moduleCandidates
-        .map((moduleId) => moduleData.find((module) => module.id === moduleId))
-        .find((module): module is ModuleNode => Boolean(module));
-
-      const productName = linkedModule?.productName?.trim()
-        ? linkedModule.productName
-        : initiative.targetModuleName;
-
-      moduleDraftPrefillIdRef.current += 1;
-      const prefillDraft: Partial<ModuleDraftPayload> = {};
-      if (!linkedModule) {
-        prefillDraft.name = initiative.targetModuleName;
-        prefillDraft.productName = productName;
-        prefillDraft.domainIds = initiative.domains;
-      }
-      if (team.length > 0) {
-        prefillDraft.projectTeam = team;
-      }
-
-      setModuleDraftPrefill({
-        id: moduleDraftPrefillIdRef.current,
-        mode: linkedModule ? 'edit' : 'create',
-        moduleId: linkedModule?.id,
-        draft: prefillDraft
-      });
-
-      patchInitiative(initiativeId, (current) => {
-        if (current.status === 'converted') {
-          return { ...current, lastUpdated: new Date().toISOString() };
-        }
-        return { ...current, status: 'converted', lastUpdated: new Date().toISOString() };
-      });
-
-      navigateToView('admin');
-      showAdminNotice(
-        'success',
-        `Команда инициативы «${initiative.name}» передана в черновик модуля.`
-      );
-    },
-    [
-      initiativeData,
-      expertProfiles,
-      moduleData,
-      patchInitiative,
-      navigateToView,
-      showAdminNotice,
-      setModuleDraftPrefill
-    ]
-  );
+  const {
+    handleToggleInitiativePin,
+    handleAddInitiativeRisk,
+    handleRemoveInitiativeRisk,
+    handleInitiativeStatusChange,
+    handleInitiativeExport,
+    handlePlannerCreateInitiative,
+    handlePlannerUpdateInitiative
+  } = useInitiativeActions({
+    initiativeData,
+    expertProfiles,
+    moduleData,
+    setInitiativeData,
+    markGraphDirty,
+    showAdminNotice,
+    moduleDraftPrefillIdRef,
+    setModuleDraftPrefill
+  });
 
   useEffect(() => {
     setProductFilter((prev) => {
