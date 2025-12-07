@@ -742,6 +742,37 @@ const GraphView: React.FC<GraphViewProps> = ({
     return () => window.cancelAnimationFrame(frame);
   }, [configureSimulation, graphInstanceKey, isGraphVisible, restoreCamera]);
 
+  const hydrateNodePosition = useCallback(
+    (node: ForceNode | undefined | null): ForceNode | null => {
+      if (!node) {
+        return null;
+      }
+
+      if (typeof node.x === 'number' && typeof node.y === 'number') {
+        return node;
+      }
+
+      const layout = layoutPositionsRef.current[node.id];
+      if (!layout || typeof layout.x !== 'number' || typeof layout.y !== 'number') {
+        return null;
+      }
+
+      node.x = layout.x;
+      node.y = layout.y;
+
+      if (typeof layout.fx === 'number') {
+        node.fx = layout.fx;
+      }
+
+      if (typeof layout.fy === 'number') {
+        node.fy = layout.fy;
+      }
+
+      return node;
+    },
+    []
+  );
+
   useEffect(() => {
     if (!highlightedNode) {
       setIsFocusedView(false);
@@ -906,37 +937,6 @@ const GraphView: React.FC<GraphViewProps> = ({
   const handleShowAllButton = useCallback(() => {
     showEntireGraph();
   }, [showEntireGraph]);
-
-  const hydrateNodePosition = useCallback(
-    (node: ForceNode | undefined | null): ForceNode | null => {
-      if (!node) {
-        return null;
-      }
-
-      if (typeof node.x === 'number' && typeof node.y === 'number') {
-        return node;
-      }
-
-      const layout = layoutPositionsRef.current[node.id];
-      if (!layout || typeof layout.x !== 'number' || typeof layout.y !== 'number') {
-        return null;
-      }
-
-      node.x = layout.x;
-      node.y = layout.y;
-
-      if (typeof layout.fx === 'number') {
-        node.fx = layout.fx;
-      }
-
-      if (typeof layout.fy === 'number') {
-        node.fy = layout.fy;
-      }
-
-      return node;
-    },
-    []
-  );
 
   const handleZoomTransform = useCallback(
     (transform?: { k: number; x: number; y: number }) => {
