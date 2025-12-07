@@ -57,6 +57,24 @@
   border-bottom-color: var(--color-bg-border);
 }
 
+.pageContainer {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.pageSurface {
+  height: 100%;
+}
+
+.pageLoader {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
 .header {
   /* Should be hidden or removed if using LayoutShell, but kept for compatibility */
   display: none;
