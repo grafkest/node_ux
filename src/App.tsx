@@ -1,11 +1,11 @@
-import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { presetGpnDefault, presetGpnDark } from '@consta/uikit/Theme';
 
 import { Button } from '@consta/uikit/Button';
 import { Collapse } from '@consta/uikit/Collapse';
 import { Loader } from '@consta/uikit/Loader';
 import { Text } from '@consta/uikit/Text';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import DomainTree from './components/DomainTree';
@@ -244,7 +244,6 @@ function AppContent() {
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
   const [statsActivated, setStatsActivated] = useState(false);
-  const hasPrefetchedStats = useRef(false);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
@@ -3322,28 +3321,7 @@ function AppContent() {
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
               </div>
             )}
-            <div className={styles.pageContainer}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={location.pathname}
-                  className={styles.pageSurface}
-                  initial="hidden"
-                  animate="visible"
-                  exit="hidden"
-                  variants={pageVariants}
-                >
-                  <Suspense
-                    fallback={(
-                      <div className={styles.pageLoader}>
-                        <Loader size="m" />
-                      </div>
-                    )}
-                  >
-                    <Outlet context={outletContext} />
-                  </Suspense>
-                </motion.div>
-              </AnimatePresence>
-            </div>
+            <Outlet context={outletContext} />
           </>
         )}
       </LayoutShell>
