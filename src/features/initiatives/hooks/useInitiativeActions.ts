@@ -22,7 +22,7 @@ import type {
   ModuleNode
 } from '../../../data';
 import type { ModuleDraftPrefillRequest } from '../../admin/types';
-import { createEntityId } from '../../../utils/entityUtils';
+import { createEntityId } from '../../../utils/common';
 
 type UseInitiativeActionsOptions = {
   initiativeData: Initiative[];
