@@ -773,6 +773,33 @@ const GraphView: React.FC<GraphViewProps> = ({
     []
   );
 
+  const resolveNodeById = useCallback(
+    (nodeId: string | null | undefined): ForceNode | null => {
+      if (!nodeId) {
+        return null;
+      }
+
+      const cached = nodeCacheRef.current.get(nodeId);
+      if (cached) {
+        return hydrateNodePosition(cached);
+      }
+
+      const graphNodes = graphRef.current?.graphData?.()?.nodes as ForceNode[] | undefined;
+      const graphNode = graphNodes?.find((candidate) => candidate.id === nodeId);
+      if (graphNode) {
+        return hydrateNodePosition(graphNode);
+      }
+
+      const localNode = nodes.find((candidate) => candidate.id === nodeId) as ForceNode | undefined;
+      if (localNode) {
+        return hydrateNodePosition(localNode);
+      }
+
+      return null;
+    },
+    [hydrateNodePosition, nodes]
+  );
+
   useEffect(() => {
     if (!highlightedNode) {
       setIsFocusedView(false);
@@ -789,7 +816,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       return;
     }
 
-    const target = hydrateNodePosition(nodeCacheRef.current.get(highlightedNode));
+    const target = resolveNodeById(highlightedNode);
     if (!target || typeof target.x !== 'number' || typeof target.y !== 'number') {
       return;
     }
@@ -821,7 +848,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       writeStoredCameraState(cameraStorageKey, nextState);
       scheduleCameraCapture(420);
     }
-  }, [cameraStorageKey, getViewportSize, highlightedNode, hydrateNodePosition, scheduleCameraCapture]);
+  }, [cameraStorageKey, getViewportSize, highlightedNode, resolveNodeById, scheduleCameraCapture]);
 
   const focusOnNode = useCallback(
     (node: ForceNode): boolean => {
@@ -914,13 +941,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       return;
     }
 
-    const cachedNode = nodeCacheRef.current.get(highlightedNode);
-    const fallbackNode = graphRef.current
-      ?.graphData?.()
-      ?.nodes?.find((candidate) => candidate.id === highlightedNode) as
-      | ForceNode
-      | undefined;
-    const node = hydrateNodePosition(cachedNode ?? fallbackNode);
+    const node = resolveNodeById(highlightedNode);
     if (!node) {
       return;
     }
@@ -932,7 +953,7 @@ const GraphView: React.FC<GraphViewProps> = ({
 
     const focused = focusOnNode(node);
     setIsFocusedView(focused);
-  }, [focusOnNode, highlightedNode, hydrateNodePosition, isFocusedView, showEntireGraph]);
+  }, [focusOnNode, highlightedNode, isFocusedView, resolveNodeById, showEntireGraph]);
 
   const handleShowAllButton = useCallback(() => {
     showEntireGraph();
