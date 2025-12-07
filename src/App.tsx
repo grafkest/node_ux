@@ -244,6 +244,7 @@ function AppContent() {
   );
   const [users, setUsers] = useState<Array<{ id: string; username: string; role: 'admin' | 'user' }>>([]);
   const [statsActivated, setStatsActivated] = useState(false);
+  const hasPrefetchedStats = useRef(false);
   useEffect(() => {
     persistStoredTasks(employeeTasks);
   }, [employeeTasks]);
@@ -1569,6 +1570,25 @@ function AppContent() {
       setStatsActivated(true);
     }
   }, [statsActivated, viewMode]);
+
+  useEffect(() => {
+    if (hasPrefetchedStats.current) return;
+
+    hasPrefetchedStats.current = true;
+
+    const prefetch = () => {
+      import('./pages/StatsPage');
+      import('./components/StatsDashboard');
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as typeof window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(
+        prefetch
+      );
+    } else {
+      setTimeout(prefetch, 500);
+    }
+  }, []);
 
   const handleSelectNode = (node: GraphNode | null) => {
     setSelectedNode(node);
