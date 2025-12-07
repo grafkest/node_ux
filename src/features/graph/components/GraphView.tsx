@@ -758,7 +758,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       return;
     }
 
-    const target = nodeCacheRef.current.get(highlightedNode);
+    const target = hydrateNodePosition(nodeCacheRef.current.get(highlightedNode));
     if (!target || typeof target.x !== 'number' || typeof target.y !== 'number') {
       return;
     }
@@ -790,35 +790,36 @@ const GraphView: React.FC<GraphViewProps> = ({
       writeStoredCameraState(cameraStorageKey, nextState);
       scheduleCameraCapture(420);
     }
-  }, [cameraStorageKey, getViewportSize, highlightedNode, scheduleCameraCapture]);
+  }, [cameraStorageKey, getViewportSize, highlightedNode, hydrateNodePosition, scheduleCameraCapture]);
 
   const focusOnNode = useCallback(
     (node: ForceNode): boolean => {
-      if (!graphRef.current || typeof node.x !== 'number' || typeof node.y !== 'number') {
+      const target = hydrateNodePosition(node);
+      if (!graphRef.current || !target || typeof target.x !== 'number' || typeof target.y !== 'number') {
         return false;
       }
 
       const graph = graphRef.current;
-      const label = node.name ?? node.id;
+      const label = target.name ?? target.id;
       const viewport = getViewportSize();
       const targetZoom = computeFocusZoom(viewport, label);
 
       if (typeof graph.zoom === 'function') {
         graph.zoom(targetZoom, 400);
       }
-      graph.centerAt(node.x, node.y, 400);
+      graph.centerAt(target.x, target.y, 400);
 
       const nextState: CameraState = {
-        center: { x: node.x, y: node.y },
+        center: { x: target.x, y: target.y },
         zoom: targetZoom
       };
       cameraStateRef.current = nextState;
       writeStoredCameraState(cameraStorageKey, nextState);
-      lastFocusedNodeRef.current = node.id;
+      lastFocusedNodeRef.current = target.id;
       scheduleCameraCapture(420);
       return true;
     },
-    [cameraStorageKey, getViewportSize, scheduleCameraCapture]
+    [cameraStorageKey, getViewportSize, hydrateNodePosition, scheduleCameraCapture]
   );
 
   const showEntireGraph = useCallback(() => {
@@ -888,7 +889,7 @@ const GraphView: React.FC<GraphViewProps> = ({
       ?.nodes?.find((candidate) => candidate.id === highlightedNode) as
       | ForceNode
       | undefined;
-    const node = cachedNode ?? fallbackNode;
+    const node = hydrateNodePosition(cachedNode ?? fallbackNode);
     if (!node) {
       return;
     }
@@ -900,11 +901,42 @@ const GraphView: React.FC<GraphViewProps> = ({
 
     const focused = focusOnNode(node);
     setIsFocusedView(focused);
-  }, [focusOnNode, highlightedNode, isFocusedView, showEntireGraph]);
+  }, [focusOnNode, highlightedNode, hydrateNodePosition, isFocusedView, showEntireGraph]);
 
   const handleShowAllButton = useCallback(() => {
     showEntireGraph();
   }, [showEntireGraph]);
+
+  const hydrateNodePosition = useCallback(
+    (node: ForceNode | undefined | null): ForceNode | null => {
+      if (!node) {
+        return null;
+      }
+
+      if (typeof node.x === 'number' && typeof node.y === 'number') {
+        return node;
+      }
+
+      const layout = layoutPositionsRef.current[node.id];
+      if (!layout || typeof layout.x !== 'number' || typeof layout.y !== 'number') {
+        return null;
+      }
+
+      node.x = layout.x;
+      node.y = layout.y;
+
+      if (typeof layout.fx === 'number') {
+        node.fx = layout.fx;
+      }
+
+      if (typeof layout.fy === 'number') {
+        node.fy = layout.fy;
+      }
+
+      return node;
+    },
+    []
+  );
 
   const handleZoomTransform = useCallback(
     (transform?: { k: number; x: number; y: number }) => {
