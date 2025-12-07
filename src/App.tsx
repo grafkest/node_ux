@@ -1570,6 +1570,25 @@ function AppContent() {
     }
   }, [statsActivated, viewMode]);
 
+  useEffect(() => {
+    if (hasPrefetchedStats.current) return;
+
+    hasPrefetchedStats.current = true;
+
+    const prefetch = () => {
+      import('./pages/StatsPage');
+      import('./components/StatsDashboard');
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as typeof window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(
+        prefetch
+      );
+    } else {
+      setTimeout(prefetch, 500);
+    }
+  }, []);
+
   const handleSelectNode = (node: GraphNode | null) => {
     setSelectedNode(node);
   };
@@ -3281,7 +3300,7 @@ function AppContent() {
         />
 
         {shouldShowInitialLoader ? (
-          <div className={styles.loadingState} style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div className={styles.loadingState}>
             <Loader size="m" />
             <Text size="s" view="secondary">
               Загружаем доступные графы и их содержимое...
@@ -3292,16 +3311,11 @@ function AppContent() {
             {adminNotice && (
               <div
                 key={adminNotice.id}
-                className={`${styles.noticeBanner} ${adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError
-                  }`}
+                className={`${styles.noticeBanner} ${adminNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError}`}
                 role={adminNotice.type === 'error' ? 'alert' : 'status'}
                 aria-live={adminNotice.type === 'error' ? 'assertive' : 'polite'}
               >
-                <Text
-                  size="s"
-                  view="primary"
-                  className={styles.noticeMessage}
-                >
+                <Text size="s" view="primary" className={styles.noticeMessage}>
                   {adminNotice.message}
                 </Text>
                 <Button size="xs" view="ghost" label="Скрыть" onClick={dismissAdminNotice} />
