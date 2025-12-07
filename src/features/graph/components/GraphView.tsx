@@ -158,6 +158,7 @@ const GraphView: React.FC<GraphViewProps> = ({
   const layoutPositionsRef = useRef<Record<string, GraphLayoutNodePosition>>(layoutPositions);
   const lastReportedLayoutRef = useRef<string>('');
   const cameraStateRef = useRef<CameraState | null>(initialCameraState);
+  const highlightedNodeRef = useRef<string | null>(highlightedNode);
   const captureTimeoutRef = useRef<number | null>(null);
   const lastFocusedNodeRef = useRef<string | null>(null);
   const hasInitialFitRef = useRef(false);
@@ -198,6 +199,11 @@ const GraphView: React.FC<GraphViewProps> = ({
   useEffect(() => {
     layoutPositionsRef.current = layoutPositions;
   }, [layoutPositions]);
+
+  useEffect(() => {
+    highlightedNodeRef.current = highlightedNode;
+    refreshGraphInstance();
+  }, [highlightedNode, refreshGraphInstance]);
 
   useEffect(() => {
     nodeCacheRef.current.clear();
@@ -1037,11 +1043,29 @@ const GraphView: React.FC<GraphViewProps> = ({
     [moduleStatusMap, palette, visibleDomainIds, visibleModuleStatuses]
   );
 
+  const getLinkDirectionalParticles = useCallback(
+    (link: ForceLink) => (link.type === 'produces' || link.type === 'consumes' ? 2 : 0),
+    []
+  );
+
+  const getLinkDirectionalParticleSpeed = useCallback(
+    (link: ForceLink) => (link.type === 'produces' ? 0.005 : 0.005),
+    []
+  );
+
   const renderNode = useCallback(
     (node: ForceNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      drawNode(node, ctx, globalScale, highlightedNode, palette, visibleDomainIds, visibleModuleStatuses);
+      drawNode(
+        node,
+        ctx,
+        globalScale,
+        highlightedNodeRef.current,
+        palette,
+        visibleDomainIds,
+        visibleModuleStatuses
+      );
     },
-    [highlightedNode, palette, visibleDomainIds, visibleModuleStatuses]
+    [palette, visibleDomainIds, visibleModuleStatuses]
   );
 
   const getNodeCanvasMode = useCallback(() => 'replace', []);
@@ -1117,8 +1141,8 @@ const GraphView: React.FC<GraphViewProps> = ({
               graphData={graphData}
               nodeLabel={getNodeLabel}
               linkColor={getLinkColor}
-              linkDirectionalParticles={(link: ForceLink) => (link.type === 'produces' || link.type === 'consumes' ? 2 : 0)}
-              linkDirectionalParticleSpeed={(link: ForceLink) => (link.type === 'produces' ? 0.005 : 0.005)}
+              linkDirectionalParticles={getLinkDirectionalParticles}
+              linkDirectionalParticleSpeed={getLinkDirectionalParticleSpeed}
               linkDirectionalParticleWidth={3}
               nodeCanvasObject={renderNode}
               nodeCanvasObjectMode={getNodeCanvasMode}
