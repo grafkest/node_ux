@@ -207,6 +207,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
 void initializeGraphStore()
   .then(() => {
     const port = Number.parseInt(process.env.PORT ?? '3003', 10);

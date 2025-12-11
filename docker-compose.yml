@@ -1,0 +1,85 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: admin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-multiple-databases.sql:/docker-entrypoint-initdb.d/init-multiple-databases.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  graph:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graph_db
+      DB_SCHEMA: graph
+      PORT: 4001
+    command: sh -c "npm run migrate:graph && npm run start:graph"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  initiatives:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/initiatives_db
+      DB_SCHEMA: initiatives
+      PORT: 4002
+    command: sh -c "npm run migrate:initiatives && npm run start:initiatives"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4002/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  workforce:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workforce_db
+      DB_SCHEMA: workforce
+      PORT: 4003
+    command: sh -c "npm run migrate:workforce && npm run start:workforce"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4003/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auth_db
+      DB_SCHEMA: auth
+      PORT: 4004
+    command: sh -c "npm run migrate:auth && npm run start:auth"
+    healthcheck:
+      test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4004/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
