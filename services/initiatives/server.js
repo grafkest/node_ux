@@ -1,14 +1,28 @@
+import cors from 'cors';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import process from 'node:process';
-import { createKnexClient } from '../common/knexClient.js';
 import { createAuthMiddleware } from '../common/authMiddleware.js';
+import { createMemoryCache, getOrSet } from '../common/cache.js';
+import { createKnexClient } from '../common/knexClient.js';
 
 const GRAPH_API_URL = process.env.GRAPH_API_URL ?? 'http://localhost:4001';
+const WORKFORCE_API_URL = process.env.WORKFORCE_API_URL ?? 'http://localhost:4003';
 const port = Number.parseInt(process.env.PORT ?? '4002', 10);
 const knexClient = createKnexClient('initiatives');
 const authMiddleware = createAuthMiddleware();
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 400,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const directoryCache = createMemoryCache({ ttlMs: 90 * 1000 });
+const linkCache = createMemoryCache({ ttlMs: 45 * 1000 });
 
 const app = express();
+app.use(cors());
+app.use(limiter);
 app.use(express.json());
 
 app.get('/health', async (_req, res) => {
@@ -30,55 +44,58 @@ app.get('/initiatives', async (req, res) => {
   const { graphId, nodeId } = req.query;
 
   try {
-    const query = knexClient('initiatives as i')
-      .select(
-        'i.id',
-        'i.title',
-        'i.description',
-        'i.status',
-        'i.created_at as createdAt',
-        'i.updated_at as updatedAt'
-      )
-      .orderBy('i.created_at', 'desc');
+    const cacheKey = `list:${graphId ?? 'all'}:${nodeId ?? 'all'}`;
+    const payload = await getOrSet(directoryCache, cacheKey, async () => {
+      const query = knexClient('initiatives as i')
+        .select(
+          'i.id',
+          'i.title',
+          'i.description',
+          'i.status',
+          'i.created_at as createdAt',
+          'i.updated_at as updatedAt'
+        )
+        .orderBy('i.created_at', 'desc');
 
-    if (graphId || nodeId) {
-      query.join('links_to_graph as l', 'l.initiative_id', 'i.id').distinct();
-    }
+      if (graphId || nodeId) {
+        query.join('links_to_graph as l', 'l.initiative_id', 'i.id').distinct();
+      }
 
-    if (graphId && typeof graphId === 'string') {
-      query.where('l.graph_id', graphId);
-    }
+      if (graphId && typeof graphId === 'string') {
+        query.where('l.graph_id', graphId);
+      }
 
-    if (nodeId && typeof nodeId === 'string') {
-      query.where('l.node_id', nodeId);
-    }
+      if (nodeId && typeof nodeId === 'string') {
+        query.where('l.node_id', nodeId);
+      }
 
-    const initiatives = await query;
-    const links = await knexClient('links_to_graph')
-      .select(
-        'initiative_id as initiativeId',
-        'graph_id as graphId',
-        'node_id as nodeId',
-        'node_type as nodeType'
-      )
-      .whereIn(
-        'initiative_id',
-        initiatives.length ? initiatives.map((item) => item.id) : ['__none__']
-      );
+      const initiatives = await query;
+      const links = await knexClient('links_to_graph')
+        .select(
+          'initiative_id as initiativeId',
+          'graph_id as graphId',
+          'node_id as nodeId',
+          'node_type as nodeType'
+        )
+        .whereIn(
+          'initiative_id',
+          initiatives.length ? initiatives.map((item) => item.id) : ['__none__']
+        );
 
-    const linksByInitiative = links.reduce((acc, link) => {
-      const bucket = acc.get(link.initiativeId) ?? [];
-      bucket.push({ graphId: link.graphId, nodeId: link.nodeId, nodeType: link.nodeType });
-      acc.set(link.initiativeId, bucket);
-      return acc;
-    }, new Map());
+      const linksByInitiative = links.reduce((acc, link) => {
+        const bucket = acc.get(link.initiativeId) ?? [];
+        bucket.push({ graphId: link.graphId, nodeId: link.nodeId, nodeType: link.nodeType });
+        acc.set(link.initiativeId, bucket);
+        return acc;
+      }, new Map());
 
-    res.json(
-      initiatives.map((initiative) => ({
+      return initiatives.map((initiative) => ({
         ...formatInitiativeRow(initiative),
         links: linksByInitiative.get(initiative.id) ?? []
-      }))
-    );
+      }));
+    });
+
+    res.json(payload);
   } catch (error) {
     console.error('Failed to list initiatives', error);
     res.status(500).json({ message: 'Не удалось получить список инициатив.' });
@@ -96,7 +113,7 @@ app.post('/initiatives', async (req, res) => {
   try {
     if (Array.isArray(links)) {
       for (const link of links) {
-        await ensureNodeExists(link.graphId, link.nodeId);
+        await ensureNodeExists(link.graphId, link.nodeId, req.headers.authorization);
       }
     }
 
@@ -120,6 +137,8 @@ app.post('/initiatives', async (req, res) => {
       ? links.map((item) => ({ graphId: item.graphId, nodeId: item.nodeId, nodeType: item.nodeType ?? 'artifact' }))
       : [];
 
+    directoryCache.clear();
+    linkCache.clear();
     res.status(201).json(formatted);
   } catch (error) {
     console.error('Failed to create initiative', error);
@@ -131,24 +150,37 @@ app.get('/initiatives/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const initiative = await knexClient('initiatives')
-      .select('id', 'title', 'description', 'status', 'created_at as createdAt', 'updated_at as updatedAt')
-      .where({ id })
-      .first();
+    const payload = await getOrSet(linkCache, `initiative:${id}`, async () => {
+      const initiative = await knexClient('initiatives')
+        .select('id', 'title', 'description', 'status', 'created_at as createdAt', 'updated_at as updatedAt')
+        .where({ id })
+        .first();
 
-    if (!initiative) {
+      if (!initiative) {
+        return null;
+      }
+
+      const [links, milestones] = await Promise.all([
+        knexClient('links_to_graph')
+          .select('graph_id as graphId', 'node_id as nodeId', 'node_type as nodeType')
+          .where({ initiative_id: id }),
+        loadMilestones(id)
+      ]);
+
+      return { ...formatInitiativeRow(initiative), links, milestones };
+    });
+
+    if (!payload) {
       res.status(404).json({ message: 'Инициатива не найдена.' });
       return;
     }
 
-    const [links, milestones] = await Promise.all([
-      knexClient('links_to_graph')
-        .select('graph_id as graphId', 'node_id as nodeId', 'node_type as nodeType')
-        .where({ initiative_id: id }),
-      loadMilestones(id)
+    const [linksWithGraph, assignments] = await Promise.all([
+      enrichLinksWithGraph(payload.links, req.headers.authorization),
+      fetchAssignmentsForInitiative(id, req.headers.authorization)
     ]);
 
-    res.json({ ...formatInitiativeRow(initiative), links, milestones });
+    res.json({ ...payload, links: linksWithGraph, assignments });
   } catch (error) {
     console.error('Failed to load initiative', error);
     res.status(500).json({ message: 'Не удалось получить инициативу.' });
@@ -168,7 +200,7 @@ app.put('/initiatives/:id', async (req, res) => {
 
     if (Array.isArray(links)) {
       for (const link of links) {
-        await ensureNodeExists(link.graphId, link.nodeId);
+        await ensureNodeExists(link.graphId, link.nodeId, req.headers.authorization);
       }
     }
 
@@ -200,6 +232,8 @@ app.put('/initiatives/:id', async (req, res) => {
       .select('graph_id as graphId', 'node_id as nodeId', 'node_type as nodeType')
       .where({ initiative_id: id });
 
+    directoryCache.clear();
+    linkCache.clear();
     res.json({ ...formatInitiativeRow(updated), links: loadedLinks });
   } catch (error) {
     console.error('Failed to update initiative', error);
@@ -251,6 +285,7 @@ app.post('/initiatives/:id/milestones', async (req, res) => {
       })
       .returning(['id', 'title', 'due_date as dueDate', 'status', 'created_at as createdAt', 'updated_at as updatedAt']);
 
+    linkCache.clear();
     res.status(201).json(created);
   } catch (error) {
     console.error('Failed to create milestone', error);
@@ -272,7 +307,7 @@ app.post('/events/graph', async (req, res) => {
   }
 
   try {
-    await recomputeRisksForGraph(data.graphId);
+    await recomputeRisksForGraph(data.graphId, req.headers.authorization);
     res.status(202).json({ status: 'recalculated' });
   } catch (error) {
     console.error('Failed to recompute risks', error);
@@ -312,12 +347,22 @@ function toIso(value) {
   return typeof value === 'string' ? value : value.toISOString();
 }
 
-async function ensureNodeExists(graphId, nodeId) {
+function buildAuthHeaders(authHeader) {
+  const headers = {};
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+  return headers;
+}
+
+async function ensureNodeExists(graphId, nodeId, authHeader) {
   if (!graphId || !nodeId) {
     throw new Error('graphId и nodeId обязательны для ссылки на граф.');
   }
 
-  const response = await fetch(`${GRAPH_API_URL}/graphs/${graphId}/nodes/${nodeId}`);
+  const response = await fetch(`${GRAPH_API_URL}/graphs/${graphId}/nodes/${nodeId}`, {
+    headers: buildAuthHeaders(authHeader)
+  });
 
   if (response.status === 404) {
     throw new Error(`Узел ${nodeId} не найден в графе ${graphId}.`);
@@ -341,24 +386,71 @@ async function loadMilestones(initiativeId) {
   }));
 }
 
-async function fetchGraphNodes(graphId) {
-  const response = await fetch(`${GRAPH_API_URL}/graphs/${graphId}/nodes`);
+async function fetchGraphNodes(graphId, authHeader) {
+  return getOrSet(linkCache, `graphNodes:${graphId}`, async () => {
+    const response = await fetch(`${GRAPH_API_URL}/graphs/${graphId}/nodes`, { headers: buildAuthHeaders(authHeader) });
 
-  if (response.status === 404) {
-    return [];
-  }
+    if (response.status === 404) {
+      return [];
+    }
 
-  if (!response.ok) {
-    throw new Error(`Graph API вернул ошибку: ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new Error(`Graph API вернул ошибку: ${response.status}`);
+    }
 
-  const payload = await response.json();
-  if (!Array.isArray(payload)) return [];
-  return payload;
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return [];
+    return payload;
+  });
 }
 
-async function recomputeRisksForGraph(graphId) {
-  const nodes = await fetchGraphNodes(graphId);
+async function fetchAssignmentsForInitiative(initiativeId, authHeader) {
+  try {
+    const response = await fetch(`${WORKFORCE_API_URL}/assignments?initiativeId=${initiativeId}`, {
+      headers: buildAuthHeaders(authHeader)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Workforce API вернул ошибку: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.warn('Failed to load assignments', error);
+    return [];
+  }
+}
+
+async function enrichLinksWithGraph(links, authHeader) {
+  if (!Array.isArray(links) || links.length === 0) {
+    return links ?? [];
+  }
+
+  const grouped = links.reduce((acc, link) => {
+    const bucket = acc.get(link.graphId) ?? [];
+    bucket.push(link);
+    acc.set(link.graphId, bucket);
+    return acc;
+  }, new Map());
+
+  const enrichedChunks = await Promise.all(
+    Array.from(grouped.entries()).map(async ([graphId, graphLinks]) => {
+      const nodes = await fetchGraphNodes(graphId, authHeader);
+      const nodeById = new Map(nodes.map((node) => [node.nodeId ?? node.id, node]));
+
+      return graphLinks.map((link) => ({
+        ...link,
+        node: nodeById.get(link.nodeId) ?? null
+      }));
+    })
+  );
+
+  return enrichedChunks.flat();
+}
+
+async function recomputeRisksForGraph(graphId, authHeader) {
+  const nodes = await fetchGraphNodes(graphId, authHeader);
   const nodeSet = new Set(nodes.map((node) => node.nodeId));
 
   const links = await knexClient('links_to_graph')

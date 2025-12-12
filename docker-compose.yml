@@ -26,6 +26,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graph_db
       DB_SCHEMA: graph
       PORT: 4001
+      AUTH_JWKS_URL: http://auth:4004/.well-known/jwks.json
+      GRAPH_PUBLISHED_WEBHOOK_URL: http://initiatives:4002/events/graph
     command: sh -c "npm run migrate:graph && npm run start:graph"
     healthcheck:
       test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4001/health']
@@ -42,6 +44,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/initiatives_db
       DB_SCHEMA: initiatives
       PORT: 4002
+      AUTH_JWKS_URL: http://auth:4004/.well-known/jwks.json
+      GRAPH_API_URL: http://graph:4001
+      WORKFORCE_API_URL: http://workforce:4003
     command: sh -c "npm run migrate:initiatives && npm run start:initiatives"
     healthcheck:
       test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4002/health']
@@ -58,6 +63,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workforce_db
       DB_SCHEMA: workforce
       PORT: 4003
+      AUTH_JWKS_URL: http://auth:4004/.well-known/jwks.json
     command: sh -c "npm run migrate:workforce && npm run start:workforce"
     healthcheck:
       test: ['CMD', 'wget', '-qO', '-', 'http://localhost:4003/health']
@@ -81,5 +87,18 @@ services:
       timeout: 5s
       retries: 5
 
+  pgbackups:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - pgbackups:/var/backups/postgres
+    entrypoint: /bin/sh
+    command: -c "mkdir -p /var/backups/postgres && while true; do pg_dumpall -h postgres -U postgres > /var/backups/postgres/backup-$(date +%Y%m%d%H%M%S).sql && find /var/backups/postgres -type f -mtime +7 -delete; sleep 3600; done"
+
 volumes:
   pgdata:
+  pgbackups:

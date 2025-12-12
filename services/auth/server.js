@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
+import cors from 'cors';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import process from 'node:process';
 import { createAuthMiddleware } from '../common/authMiddleware.js';
 import { createKnexClient } from '../common/knexClient.js';
@@ -9,8 +11,16 @@ import { buildTokenPayload, createRefreshToken, hashToken, signAccessToken } fro
 const port = Number.parseInt(process.env.PORT ?? '4004', 10);
 const knexClient = createKnexClient('auth');
 const authMiddleware = createAuthMiddleware({ publicKey: getPublicKey() });
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const app = express();
+app.use(cors());
+app.use(limiter);
 app.use(express.json());
 
 app.get('/health', async (_req, res) => {

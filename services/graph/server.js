@@ -1,8 +1,11 @@
 import crypto from 'node:crypto';
+import cors from 'cors';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import process from 'node:process';
-import { createKnexClient } from '../common/knexClient.js';
 import { createAuthMiddleware } from '../common/authMiddleware.js';
+import { createMemoryCache, getOrSet } from '../common/cache.js';
+import { createKnexClient } from '../common/knexClient.js';
 
 const DEFAULT_GRAPH_ID = 'main';
 const DEFAULT_GRAPH_NAME = 'Основной';
@@ -11,8 +14,18 @@ const GRAPH_PUBLISHED_WEBHOOK = process.env.GRAPH_PUBLISHED_WEBHOOK_URL ?? proce
 const port = Number.parseInt(process.env.PORT ?? '4001', 10);
 const knexClient = createKnexClient('graph');
 const authMiddleware = createAuthMiddleware();
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 400,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const directoryCache = createMemoryCache({ ttlMs: 2 * 60 * 1000 });
+const nodesCache = createMemoryCache({ ttlMs: 60 * 1000 });
 
 const app = express();
+app.use(cors());
+app.use(limiter);
 app.use(express.json({ limit: '5mb' }));
 
 app.get('/health', async (_req, res) => {
@@ -32,9 +45,11 @@ app.use(authMiddleware.protect());
 
 app.get('/graphs', async (_req, res) => {
   try {
-    const graphs = await knexClient('graphs')
-      .select('id', 'name', 'is_default as isDefault', 'created_at as createdAt', 'updated_at as updatedAt')
-      .orderBy([{ column: 'is_default', order: 'desc' }, { column: 'created_at', order: 'asc' }]);
+    const graphs = await getOrSet(directoryCache, 'graphs:list', async () =>
+      knexClient('graphs')
+        .select('id', 'name', 'is_default as isDefault', 'created_at as createdAt', 'updated_at as updatedAt')
+        .orderBy([{ column: 'is_default', order: 'desc' }, { column: 'created_at', order: 'asc' }])
+    );
 
     res.json(graphs.map(normalizeGraphRow));
   } catch (error) {
@@ -62,6 +77,8 @@ app.post('/graphs', async (req, res) => {
 
   try {
     const created = await createGraph(payload);
+    directoryCache.clear();
+    nodesCache.clear();
     res.status(201).json(created);
   } catch (error) {
     console.error('Failed to create graph', error);
@@ -109,7 +126,7 @@ app.get('/graphs/:graphId/nodes', async (req, res) => {
   const { graphId } = req.params;
 
   try {
-    const nodes = await listNodes(graphId);
+    const nodes = await getOrSet(nodesCache, `nodes:${graphId}`, () => listNodes(graphId));
     res.json(nodes);
   } catch (error) {
     console.error('Failed to list nodes', error);
@@ -147,6 +164,7 @@ app.put('/graphs/:graphId', async (req, res) => {
 
   try {
     await persistSnapshot(graphId, payload);
+    nodesCache.clear();
     res.status(204).end();
   } catch (error) {
     console.error('Failed to save graph snapshot', error);
@@ -160,6 +178,8 @@ app.delete('/graphs/:graphId', async (req, res) => {
 
   try {
     await deleteGraph(graphId);
+    directoryCache.clear();
+    nodesCache.clear();
     res.status(204).end();
   } catch (error) {
     console.error('Failed to delete graph', error);
