@@ -1,14 +1,27 @@
+import cors from 'cors';
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import process from 'node:process';
-import { createKnexClient } from '../common/knexClient.js';
+import rateLimit from 'express-rate-limit';
 import { createAuthMiddleware } from '../common/authMiddleware.js';
+import { createMemoryCache, getOrSet } from '../common/cache.js';
+import { createKnexClient } from '../common/knexClient.js';
 
 const port = Number.parseInt(process.env.PORT ?? '4003', 10);
 const knexClient = createKnexClient('workforce');
 const authMiddleware = createAuthMiddleware();
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 500,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const directoryCache = createMemoryCache({ ttlMs: 90 * 1000 });
+const metricsCache = createMemoryCache({ ttlMs: 60 * 1000 });
 const app = express();
 
+app.use(cors());
+app.use(limiter);
 app.use(express.json());
 
 app.get('/health', async (_req, res) => {
@@ -28,30 +41,32 @@ app.use(authMiddleware.protect());
 
 app.get('/employees', async (_req, res) => {
   try {
-    const employees = await knexClient('employees')
-      .select(
-        'id',
-        'full_name as fullName',
-        'position',
-        'email',
-        'location',
-        'created_at as createdAt',
-        'updated_at as updatedAt'
-      )
-      .orderBy('created_at', 'asc');
+    const payload = await getOrSet(directoryCache, 'employees:list', async () => {
+      const employees = await knexClient('employees')
+        .select(
+          'id',
+          'full_name as fullName',
+          'position',
+          'email',
+          'location',
+          'created_at as createdAt',
+          'updated_at as updatedAt'
+        )
+        .orderBy('created_at', 'asc');
 
-    const [skills, availability] = await Promise.all([
-      loadSkillsForEmployees(employees.map((employee) => employee.id)),
-      loadAvailabilityByEmployee(employees.map((employee) => employee.id))
-    ]);
+      const [skills, availability] = await Promise.all([
+        loadSkillsForEmployees(employees.map((employee) => employee.id)),
+        loadAvailabilityByEmployee(employees.map((employee) => employee.id))
+      ]);
 
-    res.json(
-      employees.map((employee) => ({
+      return employees.map((employee) => ({
         ...employee,
         skills: skills.get(employee.id) ?? [],
         availability: availability.get(employee.id) ?? []
-      }))
-    );
+      }));
+    });
+
+    res.json(payload);
   } catch (error) {
     console.error('Failed to list employees', error);
     res.status(500).json({ message: 'Не удалось получить список сотрудников.' });
@@ -96,6 +111,8 @@ app.post('/employees', async (req, res) => {
 
     const employeeAvailability = await loadAvailabilityByEmployee([employeeId]);
 
+    directoryCache.clear();
+    metricsCache.clear();
     res.status(201).json({
       ...created,
       skills: [],
@@ -193,6 +210,8 @@ app.put('/employees/:id', async (req, res) => {
       return;
     }
 
+    directoryCache.clear();
+    metricsCache.clear();
     res.json({
       ...employee,
       skills: skills.get(id) ?? [],
@@ -215,6 +234,8 @@ app.delete('/employees/:id', async (req, res) => {
       return;
     }
 
+    directoryCache.clear();
+    metricsCache.clear();
     res.status(204).end();
   } catch (error) {
     console.error('Failed to delete employee', error);
@@ -293,6 +314,8 @@ app.put('/employees/:id/skills', async (req, res) => {
 
       res.json(skillRows);
     });
+    directoryCache.clear();
+    metricsCache.clear();
   } catch (error) {
     console.error('Failed to update employee skills', error);
     res.status(500).json({ message: error instanceof Error ? error.message : 'Не удалось обновить навыки.' });
@@ -303,29 +326,29 @@ app.get('/assignments', async (req, res) => {
   const { initiativeId } = req.query;
 
   try {
-    const query = knexClient('assignments as a')
-      .leftJoin('employees as e', 'e.id', 'a.employee_id')
-      .select(
-        'a.id',
-        'a.employee_id as employeeId',
-        'a.initiative_id as initiativeId',
-        'a.role',
-        'a.load',
-        'a.created_at as createdAt',
-        'a.updated_at as updatedAt',
-        'e.full_name as employeeName',
-        'e.position as employeePosition'
-      )
-      .orderBy('a.created_at', 'desc');
+    const cacheKey = `assignments:${initiativeId ?? 'all'}`;
+    const rows = await getOrSet(metricsCache, cacheKey, async () => {
+      const query = knexClient('assignments as a')
+        .leftJoin('employees as e', 'e.id', 'a.employee_id')
+        .select(
+          'a.id',
+          'a.employee_id as employeeId',
+          'a.initiative_id as initiativeId',
+          'a.role',
+          'a.load',
+          'a.created_at as createdAt',
+          'a.updated_at as updatedAt',
+          'e.full_name as employeeName',
+          'e.position as employeePosition'
+        )
+        .orderBy('a.created_at', 'desc');
 
-    if (initiativeId && typeof initiativeId === 'string') {
-      query.where('a.initiative_id', initiativeId);
-    }
+      if (initiativeId && typeof initiativeId === 'string') {
+        query.where('a.initiative_id', initiativeId);
+      }
 
-    const rows = await query;
-
-    res.json(
-      rows.map((row) => ({
+      const assignments = await query;
+      return assignments.map((row) => ({
         id: row.id,
         employeeId: row.employeeId,
         initiativeId: row.initiativeId,
@@ -336,8 +359,10 @@ app.get('/assignments', async (req, res) => {
         employee: row.employeeId
           ? { id: row.employeeId, fullName: row.employeeName, position: row.employeePosition }
           : null
-      }))
-    );
+      }));
+    });
+
+    res.json(rows);
   } catch (error) {
     console.error('Failed to list assignments', error);
     res.status(500).json({ message: 'Не удалось получить распределения.' });
@@ -390,6 +415,7 @@ app.post('/assignments', async (req, res) => {
         'updated_at as updatedAt'
       ]);
 
+    metricsCache.clear();
     res.status(201).json({
       ...created,
       load: Number(created.load),
@@ -452,6 +478,7 @@ app.put('/assignments/:id', async (req, res) => {
       return;
     }
 
+    metricsCache.clear();
     res.json({
       ...updated,
       load: Number(updated.load),
@@ -475,6 +502,7 @@ app.delete('/assignments/:id', async (req, res) => {
       return;
     }
 
+    metricsCache.clear();
     res.status(204).end();
   } catch (error) {
     console.error('Failed to delete assignment', error);

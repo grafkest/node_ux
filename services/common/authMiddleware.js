@@ -66,7 +66,7 @@ export function createAuthMiddleware(options = {}) {
       const payload = jwt.verify(token, key, { algorithms: ['RS256'], audience, issuer });
       req.user = payload;
       next();
-    } catch (error) {
+    } catch {
       res.status(401).json({ message: 'Недействительный токен' });
     }
   }

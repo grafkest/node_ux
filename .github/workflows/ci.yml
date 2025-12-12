@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare databases
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -c "CREATE DATABASE graph_db;"
+          psql -h localhost -U postgres -c "CREATE DATABASE initiatives_db;"
+          psql -h localhost -U postgres -c "CREATE DATABASE workforce_db;"
+          psql -h localhost -U postgres -c "CREATE DATABASE auth_db;"
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/graph_db
+          DB_SCHEMA: graph
+        run: |
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/graph_db DB_SCHEMA=graph npm run migrate:graph
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/initiatives_db DB_SCHEMA=initiatives npm run migrate:initiatives
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/workforce_db DB_SCHEMA=workforce npm run migrate:workforce
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_db DB_SCHEMA=auth npm run migrate:auth
+
+      - name: Run lint and tests
+        run: |
+          npm run lint
+          npm test -- --runInBand
+
+      - name: Start services for smoke tests
+        env:
+          GRAPH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/graph_db
+          INITIATIVES_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/initiatives_db
+          WORKFORCE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/workforce_db
+          AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_db
+        run: |
+          PORT=4004 DATABASE_URL=$AUTH_DATABASE_URL DB_SCHEMA=auth npm run start:auth &
+          sleep 5
+          PORT=4001 DATABASE_URL=$GRAPH_DATABASE_URL DB_SCHEMA=graph AUTH_JWKS_URL=http://localhost:4004/.well-known/jwks.json GRAPH_PUBLISHED_WEBHOOK_URL=http://localhost:4002/events/graph npm run start:graph &
+          PORT=4003 DATABASE_URL=$WORKFORCE_DATABASE_URL DB_SCHEMA=workforce AUTH_JWKS_URL=http://localhost:4004/.well-known/jwks.json npm run start:workforce &
+          PORT=4002 DATABASE_URL=$INITIATIVES_DATABASE_URL DB_SCHEMA=initiatives AUTH_JWKS_URL=http://localhost:4004/.well-known/jwks.json GRAPH_API_URL=http://localhost:4001 WORKFORCE_API_URL=http://localhost:4003 npm run start:initiatives &
+          sleep 15
+
+      - name: Smoke test REST contracts and events
+        env:
+          PGPASSWORD: postgres
+        run: |
+          curl -f http://localhost:4001/health
+          curl -f http://localhost:4002/health
+          curl -f http://localhost:4003/health
+          curl -f http://localhost:4004/health
+          TOKEN=$(curl -s -X POST http://localhost:4004/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin"}' | jq -r '.accessToken')
+          curl -f -H "Authorization: Bearer $TOKEN" http://localhost:4001/graphs
+          curl -f -H "Authorization: Bearer $TOKEN" http://localhost:4003/employees
+          curl -f -X POST http://localhost:4002/events/graph -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"type":"graph.published","data":{"graphId":"smoke"}}'
+          curl -f -H "Authorization: Bearer $TOKEN" http://localhost:4002/initiatives
