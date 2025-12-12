@@ -20,7 +20,8 @@
     "start:graph": "node services/graph/server.js",
     "start:initiatives": "node services/initiatives/server.js",
     "start:workforce": "node services/workforce/server.js",
-    "start:auth": "node services/auth/server.js"
+    "start:auth": "node services/auth/server.js",
+    "start:gateway": "node services/gateway/server.js"
   },
   "dependencies": {
     "@consta/charts": "1.0.0",
@@ -33,6 +34,7 @@
     "express": "4.21.1",
     "express-rate-limit": "^7.4.0",
     "framer-motion": "^12.23.12",
+    "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.1.0",
     "lodash": "4.17.21",
