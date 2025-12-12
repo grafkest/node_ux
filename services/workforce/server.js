@@ -2,9 +2,11 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 import { createKnexClient } from '../common/knexClient.js';
+import { createAuthMiddleware } from '../common/authMiddleware.js';
 
 const port = Number.parseInt(process.env.PORT ?? '4003', 10);
 const knexClient = createKnexClient('workforce');
+const authMiddleware = createAuthMiddleware();
 const app = express();
 
 app.use(express.json());
@@ -21,6 +23,8 @@ app.get('/health', async (_req, res) => {
     });
   }
 });
+
+app.use(authMiddleware.protect());
 
 app.get('/employees', async (_req, res) => {
   try {

@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import type { Request, Response } from 'express';
 import process from 'node:process';
+import { createAuthMiddleware } from '../services/common/authMiddleware.js';
 import {
   closeGraphStore,
   createGraph,
@@ -16,6 +17,7 @@ import { listLogs, logLogin } from './logStore';
 import { createUser, deleteUser, findUser, listUsers, updateUser } from './userStore';
 
 const app = express();
+const authMiddleware = createAuthMiddleware();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
@@ -55,6 +57,8 @@ app.post('/api/login', (req: Request, res: Response) => {
     role: user.role
   });
 });
+
+app.use('/api', authMiddleware.protect());
 
 app.get('/api/logs', (_req: Request, res: Response) => {
   // In a real app, verify admin token here
