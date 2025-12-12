@@ -1,10 +1,12 @@
 import express from 'express';
 import process from 'node:process';
 import { createKnexClient } from '../common/knexClient.js';
+import { createAuthMiddleware } from '../common/authMiddleware.js';
 
 const GRAPH_API_URL = process.env.GRAPH_API_URL ?? 'http://localhost:4001';
 const port = Number.parseInt(process.env.PORT ?? '4002', 10);
 const knexClient = createKnexClient('initiatives');
+const authMiddleware = createAuthMiddleware();
 
 const app = express();
 app.use(express.json());
@@ -21,6 +23,8 @@ app.get('/health', async (_req, res) => {
     });
   }
 });
+
+app.use(authMiddleware.protect());
 
 app.get('/initiatives', async (req, res) => {
   const { graphId, nodeId } = req.query;

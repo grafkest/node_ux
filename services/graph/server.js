@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import process from 'node:process';
 import { createKnexClient } from '../common/knexClient.js';
+import { createAuthMiddleware } from '../common/authMiddleware.js';
 
 const DEFAULT_GRAPH_ID = 'main';
 const DEFAULT_GRAPH_NAME = 'Основной';
@@ -9,6 +10,7 @@ const GRAPH_PUBLISHED_WEBHOOK = process.env.GRAPH_PUBLISHED_WEBHOOK_URL ?? proce
 
 const port = Number.parseInt(process.env.PORT ?? '4001', 10);
 const knexClient = createKnexClient('graph');
+const authMiddleware = createAuthMiddleware();
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -25,6 +27,8 @@ app.get('/health', async (_req, res) => {
     });
   }
 });
+
+app.use(authMiddleware.protect());
 
 app.get('/graphs', async (_req, res) => {
   try {
