@@ -36,9 +36,17 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Создание директории для данных
-if [ ! -d "data" ]; then
-    echo "📁 Создание директории data..."
-    mkdir -p data
+DATA_PATH=${GRAPH_DB_PATH:-data/graph.db}
+DATA_DIR=$(dirname "$DATA_PATH")
+
+if [ ! -d "$DATA_DIR" ]; then
+    echo "📁 Создание директории для базы данных: $DATA_DIR..."
+    mkdir -p "$DATA_DIR"
+fi
+
+if [ ! -f "$DATA_PATH" ]; then
+    echo "🗄️  База данных не найдена, выполняем первичную инициализацию..."
+    GRAPH_DB_PATH="$DATA_PATH" npm run init:db
 fi
 
 # Запуск backend с PM2 (если установлен)
