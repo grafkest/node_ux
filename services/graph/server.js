@@ -101,6 +101,37 @@ app.get('/graphs/:graphId/snapshots', async (req, res) => {
   }
 });
 
+app.get('/graphs/:graphId/nodes', async (req, res) => {
+  const { graphId } = req.params;
+
+  try {
+    const nodes = await listNodes(graphId);
+    res.json(nodes);
+  } catch (error) {
+    console.error('Failed to list nodes', error);
+    const message = error instanceof Error ? error.message : 'Не удалось получить узлы графа.';
+    res.status(message.includes('не найден') ? 404 : 500).json({ message });
+  }
+});
+
+app.get('/graphs/:graphId/nodes/:nodeId', async (req, res) => {
+  const { graphId, nodeId } = req.params;
+
+  try {
+    const node = await findNode(graphId, nodeId);
+    if (!node) {
+      res.status(404).json({ message: 'Узел не найден.' });
+      return;
+    }
+
+    res.json(node);
+  } catch (error) {
+    console.error('Failed to load node', error);
+    const message = error instanceof Error ? error.message : 'Не удалось получить узел графа.';
+    res.status(message.includes('не найден') ? 404 : 500).json({ message });
+  }
+});
+
 app.put('/graphs/:graphId', async (req, res) => {
   const { graphId } = req.params;
   const payload = req.body;
@@ -258,6 +289,32 @@ async function listSnapshots(graphId) {
     createdAt: toIso(row.createdAt),
     payload: row.payload
   }));
+}
+
+async function listNodes(graphId) {
+  const graph = await knexClient('graphs').where({ id: graphId }).first();
+  if (!graph) {
+    throw new Error(`Граф с идентификатором ${graphId} не найден.`);
+  }
+
+  const [domains, modules, artifacts] = await Promise.all([
+    knexClient('domains')
+      .select('node_id as nodeId', 'graph_id as graphId', 'external_id as externalId', knexClient.raw("'domain' as type"))
+      .where({ graph_id: graphId }),
+    knexClient('modules')
+      .select('node_id as nodeId', 'graph_id as graphId', 'external_id as externalId', knexClient.raw("'module' as type"))
+      .where({ graph_id: graphId }),
+    knexClient('artifacts')
+      .select('node_id as nodeId', 'graph_id as graphId', 'external_id as externalId', knexClient.raw("'artifact' as type"))
+      .where({ graph_id: graphId })
+  ]);
+
+  return [...domains, ...modules, ...artifacts];
+}
+
+async function findNode(graphId, nodeId) {
+  const nodes = await listNodes(graphId);
+  return nodes.find((node) => node.nodeId === nodeId) ?? null;
 }
 
 async function persistSnapshot(graphId, snapshot) {
