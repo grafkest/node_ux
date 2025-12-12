@@ -343,8 +343,10 @@ async function deleteUser(id) {
 }
 
 function sanitizeUser(user) {
-  const { passwordHash: _passwordHash, roleId, ...rest } = user;
-  return rest;
+  const safeUser = { ...user };
+  delete safeUser.passwordHash;
+  delete safeUser.roleId;
+  return safeUser;
 }
 
 function getAccessTtlSeconds() {

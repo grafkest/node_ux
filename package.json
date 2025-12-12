@@ -11,7 +11,7 @@
     "test": "npm exec vitest",
     "build": "npm exec vite build",
     "preview": "npm exec vite preview -- --host 0.0.0.0 --port 4173",
-    "lint": "eslint .",
+    "lint": "eslint services",
     "migrate:graph": "npm exec knex --knexfile services/graph/knexfile.cjs migrate:latest",
     "migrate:initiatives": "npm exec knex --knexfile services/initiatives/knexfile.cjs migrate:latest",
     "migrate:workforce": "npm exec knex --knexfile services/workforce/knexfile.cjs migrate:latest",
