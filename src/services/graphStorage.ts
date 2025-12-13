@@ -6,12 +6,12 @@ import {
   type GraphSnapshotPayload,
   type GraphSummary
 } from '../types/graph';
+import { apiFetch, readJsonSafe } from './apiClient';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 const GRAPHS_ENDPOINT = '/api/graphs';
 
 export async function fetchGraphSummaries(signal?: AbortSignal): Promise<GraphSummary[]> {
-  const response = await fetch(`${API_BASE}${GRAPHS_ENDPOINT}`, { signal });
+  const response = await apiFetch(GRAPHS_ENDPOINT, { signal });
 
   if (!response.ok) {
     throw new Error(`Не удалось загрузить список графов. Код ответа: ${response.status}`);
@@ -38,7 +38,7 @@ export async function createGraph(
   },
   signal?: AbortSignal
 ): Promise<GraphSummary> {
-  const response = await fetch(`${API_BASE}${GRAPHS_ENDPOINT}`, {
+  const response = await apiFetch(GRAPHS_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -57,7 +57,7 @@ export async function createGraph(
 }
 
 export async function deleteGraph(graphId: string, signal?: AbortSignal): Promise<void> {
-  const response = await fetch(`${API_BASE}${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
+  const response = await apiFetch(`${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
     method: 'DELETE',
     signal
   });
@@ -72,7 +72,7 @@ export async function fetchGraphSnapshot(
   graphId: string,
   signal?: AbortSignal
 ): Promise<GraphSnapshotPayload> {
-  const response = await fetch(`${API_BASE}${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
+  const response = await apiFetch(`${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
     signal
   });
 
@@ -98,7 +98,7 @@ export async function persistGraphSnapshot(
   snapshot: GraphSnapshotPayload,
   signal?: AbortSignal
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
+  const response = await apiFetch(`${GRAPHS_ENDPOINT}/${encodeURIComponent(graphId)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(snapshot),
@@ -199,13 +199,9 @@ export async function importGraphFromSource(
 }
 
 async function readErrorMessage(response: Response): Promise<string | null> {
-  try {
-    const data = (await response.json()) as { message?: string } | undefined;
-    if (data && typeof data.message === 'string') {
-      return data.message;
-    }
-  } catch {
-    // ignore JSON parse errors
+  const data = await readJsonSafe<{ message?: string }>(response);
+  if (data && typeof data.message === 'string') {
+    return data.message;
   }
   return null;
 }

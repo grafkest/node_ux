@@ -20,32 +20,9 @@ const Login: React.FC = () => {
         setLoading(true);
 
         try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (!response.ok) {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Ошибка входа');
-                } else {
-                    throw new Error('Сервер недоступен. Проверьте, что backend запущен на порту 3003.');
-                }
-            }
-
-            const userData = await response.json();
-            login(userData);
+            await login({ username, password });
         } catch (err) {
-            if (err instanceof TypeError && err.message.includes('fetch')) {
-                setError('Не удалось подключиться к серверу. Убедитесь, что backend запущен.');
-            } else {
-                setError(err instanceof Error ? err.message : 'Произошла ошибка');
-            }
+            setError(err instanceof Error ? err.message : 'Произошла ошибка');
         } finally {
             setLoading(false);
         }

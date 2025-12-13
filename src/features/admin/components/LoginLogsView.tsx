@@ -1,5 +1,6 @@
 import { Text } from '@consta/uikit/Text';
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../../../services/apiClient';
 import styles from './AdminPanel.module.css';
 
 type LogEntry = {
@@ -14,16 +15,27 @@ type LogEntry = {
 const LoginLogsView: React.FC = () => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/logs')
-            .then((res) => res.json())
+        apiFetch('/api/logs')
+            .then((res) => {
+                if (res.ok) {
+                    return res.json();
+                }
+                if (res.status === 404) {
+                    setError('Аудит логинов недоступен через Gateway');
+                    return [];
+                }
+                throw new Error(`Не удалось загрузить логи (${res.status})`);
+            })
             .then((data) => {
                 setLogs(data);
                 setLoading(false);
             })
             .catch((err) => {
                 console.error('Failed to fetch logs', err);
+                setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
                 setLoading(false);
             });
     }, []);
@@ -52,7 +64,11 @@ const LoginLogsView: React.FC = () => {
             </div>
 
             <div className={styles.formBody}>
-                {logs.length > 0 ? (
+                {error ? (
+                    <Text size="s" view="alert">
+                        {error}
+                    </Text>
+                ) : logs.length > 0 ? (
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
