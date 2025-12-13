@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  apiFetch,
+  persistTokens,
+  readJsonSafe,
+  restoreTokens,
+  type AuthTokens
+} from '../services/apiClient';
 
 export type UserRole = 'admin' | 'user';
 
@@ -10,7 +17,8 @@ export interface User {
 
 interface AuthContextType {
     user: User | null;
-    login: (user: User) => void;
+    tokens: AuthTokens | null;
+    login: (params: { username: string; password: string }) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -19,6 +27,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [tokens, setTokens] = useState<AuthTokens | null>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('auth_user');
@@ -30,20 +39,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.removeItem('auth_user');
             }
         }
+
+        const restoredTokens = restoreTokens();
+        if (restoredTokens) {
+            setTokens(restoredTokens);
+        }
     }, []);
 
-    const login = (userData: User) => {
-        setUser(userData);
-        localStorage.setItem('auth_user', JSON.stringify(userData));
+    const login = async ({ username, password }: { username: string; password: string }) => {
+        const response = await apiFetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password }),
+            skipAuth: true
+        });
+
+        if (!response.ok) {
+            const error = await readJsonSafe<{ message?: string }>(response);
+            throw new Error(error?.message ?? 'Ошибка входа');
+        }
+
+        const payload = await response.json();
+        const authTokens = {
+            accessToken: payload.accessToken as string,
+            refreshToken: payload.refreshToken as string | undefined
+        } satisfies AuthTokens;
+
+        setUser(payload.user as User);
+        setTokens(authTokens);
+        persistTokens(authTokens);
+        localStorage.setItem('auth_user', JSON.stringify(payload.user));
     };
 
     const logout = () => {
         setUser(null);
+        setTokens(null);
         localStorage.removeItem('auth_user');
+        persistTokens(null);
+        if (typeof window !== 'undefined') {
+            window.location.replace('/login');
+        }
     };
 
+    const value = useMemo(
+        () => ({
+            user,
+            tokens,
+            login,
+            logout,
+            isAuthenticated: !!user && !!tokens?.accessToken
+        }),
+        [login, logout, tokens, user]
+    );
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

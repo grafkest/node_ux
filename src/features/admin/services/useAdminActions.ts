@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { apiFetch } from '../../../services/apiClient';
 import type { AdminUser, UserDraftPayload } from '../types';
 
 type AdminNoticeHandler = (type: 'success' | 'error', message: string) => void;
@@ -10,7 +11,7 @@ export function useAdminActions(showAdminNotice: AdminNoticeHandler) {
 
   const fetchUsers = useCallback(() => {
     if (!user || user.role !== 'admin') return;
-    fetch('/api/users')
+    apiFetch('/api/users')
       .then((res) => res.json())
       .then((data) => setUsers(data))
       .catch((err) => console.error('Failed to fetch users', err));
@@ -23,7 +24,7 @@ export function useAdminActions(showAdminNotice: AdminNoticeHandler) {
   const handleCreateUser = useCallback(
     (draft: UserDraftPayload) => {
       if (!user || user.role !== 'admin') return;
-      fetch('/api/users', {
+      apiFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft)
@@ -47,7 +48,7 @@ export function useAdminActions(showAdminNotice: AdminNoticeHandler) {
   const handleUpdateUser = useCallback(
     (id: string, draft: UserDraftPayload) => {
       if (!user || user.role !== 'admin') return;
-      fetch(`/api/users/${id}`, {
+      apiFetch(`/api/users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft)
@@ -71,7 +72,7 @@ export function useAdminActions(showAdminNotice: AdminNoticeHandler) {
   const handleDeleteUser = useCallback(
     (id: string) => {
       if (!user || user.role !== 'admin') return;
-      fetch(`/api/users/${id}`, {
+      apiFetch(`/api/users/${id}`, {
         method: 'DELETE'
       })
         .then((res) => {

@@ -5,10 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "npm exec vite -- --host 0.0.0.0 --port 3004",
-    "server": "npm exec tsx server/index.ts",
-    "dev:full": "npm exec concurrently \"npm run server\" \"npm run dev\"",
-    "init:db": "npm exec tsx server/initDatabase.ts",
-    "test:server": "npm exec tsx --test server/graphStore.test.ts",
     "test": "npm exec vitest",
     "build": "npm exec vite build",
     "preview": "npm exec vite preview -- --host 0.0.0.0 --port 4173",
