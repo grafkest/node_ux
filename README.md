@@ -62,7 +62,7 @@
 ### Работа через API Gateway
 
 - Для запуска всех сервисов одной командой используйте Docker Compose: `docker compose up --build gateway auth graph initiatives workforce postgres pgbackups`. Каждая служба применяет миграции на старте и ждёт готовности Postgres через healthchecks, так что порядок запуска контролируется автоматически.
-- Gateway слушает порт `4000` и проксирует API (`/api/login`, `/api/users`, `/api/graphs`, `/api/initiatives`, `/api/employees`, `/api/assignments`) на внутренние сервисы. Проверить доступность можно запросом `http://localhost:4000/health`.
+- Gateway слушает порт `4000` и проксирует API (`/api/login`, `/api/users`, `/api/graphs`, `/api/initiatives`, `/api/employees`, `/api/assignments`) на внутренние сервисы. Проверить доступность можно запросом `http://localhost:4000/health`. Для карточки инициативы добавлен агрегирующий маршрут `GET /api/initiatives/:id`, который параллельно собирает данные из Initiatives, Graph и Workforce.
 - Чтобы фронтенд ходил в API через Gateway, перед запуском `npm run dev` или `npm run preview` задайте переменную окружения `VITE_GATEWAY_PROXY_TARGET=http://localhost:4000`. После этого все запросы `/api/*` будут направляться через `http://localhost:4000`.
 
 7. По желанию запустите линтер перед коммитом:
