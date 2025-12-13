@@ -65,6 +65,20 @@
 - Gateway слушает порт `4000` и проксирует API (`/api/login`, `/api/users`, `/api/graphs`, `/api/initiatives`, `/api/employees`, `/api/assignments`) на внутренние сервисы. Проверить доступность можно запросом `http://localhost:4000/health`. Для карточки инициативы добавлен агрегирующий маршрут `GET /api/initiatives/:id`, который параллельно собирает данные из Initiatives, Graph и Workforce.
 - Чтобы фронтенд ходил в API через Gateway, перед запуском `npm run dev` или `npm run preview` задайте переменную окружения `VITE_GATEWAY_PROXY_TARGET=http://localhost:4000`. После этого все запросы `/api/*` будут направляться через `http://localhost:4000`.
 
+### CI/CD для миграций
+
+1. **migration-dry-run**
+   - Поднимаем временный кластер PostgreSQL (например, `docker compose up postgres`) и применяем дамп обезличенной монолитной базы в `monolith_shadow`.
+   - Выполняем экспорт CSV: `psql -d monolith_shadow -v export_dir=/tmp/migration -f scripts/migrations/graph/export_graph.sql` и аналогично для `initiatives`, `workforce`, `auth`.
+   - Создаём схемы `graph`, `initiatives`, `workforce`, `auth` в пустой БД `migration_sandbox` и запускаем загрузку: `psql -d migration_sandbox -v import_dir=/tmp/migration -f scripts/migrations/graph/import_graph.sql` и остальные сервисы.
+2. **migration-smoke**
+   - Выполняем базовые проверки количества строк и связности (см. `docs/migration_plan.md`).
+   - Прогоняем API smoke-тесты против `migration_sandbox`:
+     - `curl -f http://localhost:4000/health` (gateway),
+     - `curl -f http://localhost:4000/api/graphs | head -n 1`,
+     - `curl -f http://localhost:4000/api/initiatives`.
+   - Сохраняем артефакты: CSV-выгрузки, sha256 сумм, отчёт о проверках.
+
 7. По желанию запустите линтер перед коммитом:
 
    ```bash
